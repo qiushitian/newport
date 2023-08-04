@@ -1,4 +1,4 @@
-def solve(read_path): #, save_path): TODO implementation allowing saving solving results elsewhere is canceled
+def solve(read_path, solver_path): #, save_path): TODO implementation allowing saving solving results elsewhere is canceled
     '''
     Parameters
     -----
@@ -16,10 +16,10 @@ def solve(read_path): #, save_path): TODO implementation allowing saving solving
         for file in read_path.rglob("[!._]*" + suffix):
             if not file.with_suffix('.ini').exists():
                 print(file.resolve(), flush=True) # show progress
-                _solve(file, file.with_suffix(''))
+                _solve(file, file.with_suffix(''), solver_path)
             
 
-def _solve(fits_path, output_path, solver_path='/Users/qtian/station/astap-test/astap_cli'):
+def _solve(fits_path, output_path, solver_path):
     '''
     Parameters
     -----
