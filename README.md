@@ -10,13 +10,17 @@ Please refer to [ASTAP website](https://www.hnsky.org/astap) and its [SourceForg
 
 A star database with the right size corresponding to the images' FOV is required, as illustrated on the [ASTAP website](https://www.hnsky.org/astap#:~:text=Star%20databases%20usability:). For the VVO 24-inch, the FOV is 0.7". Therefore, the default choice is D50, but D80 might give better results(?), although it requires more storage space on the computer. If storage is limited, D20 or D05 is also acceptable, but not other ones.
 
-#### Code Signing for Mac with Apple Silicon (M1 and M2 chips, etc.)
+#### Code Signing for Macs with Apple Silicon (M1 and M2 chips, etc.)
 
 As adapted from [ASTAP Mac installer SourceForge doc](https://sourceforge.net/projects/astap-program/files/macOS%20installer/#:~:text=Open%20a%20terminal%20windows%20and%20copy%20paste%20and%20execute%20the%20following%20command):
 
   "Open a terminal tab and copy paste and execute the following command: `codesign --force -s - [path_to_executable]`
   
   "The code signing is required only once. An update doesn't require code signing."
+
+#### Security Override in Macs
+
+macOS will prompt that the ASTAP program and the star database installer "cannot be opened because the developer cannot be identified." To override this, go to macOS's System Settings – Privacy & Security, scroll down to the "Security" section, find the message about ASTAP or the star database, and click "Open anyway." When prompt again, click "Open."
 
 ## Acknowledgment
 
