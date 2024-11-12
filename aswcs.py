@@ -1,4 +1,4 @@
-def solve(read_path, solver_path): #, save_path): TODO implementation allowing saving solving results elsewhere is canceled
+def solve(read_path, solver_path, ra=None, dec=None): #, save_path): TODO implementation allowing saving solving results elsewhere is canceled
     '''
     Parameters
     -----
@@ -16,10 +16,10 @@ def solve(read_path, solver_path): #, save_path): TODO implementation allowing s
         for file in read_path.rglob("[!._]*" + suffix):
             if not file.with_suffix('.ini').exists():
                 print(file.resolve(), flush=True) # show progress
-                _solve(file, file.with_suffix(''), solver_path)
+                _solve(file, file.with_suffix(''), solver_path, ra, dec)
             
 
-def _solve(fits_path, output_path, solver_path):
+def _solve(fits_path, output_path, solver_path, ra, dec):
     '''
     Parameters
     -----
@@ -36,8 +36,16 @@ def _solve(fits_path, output_path, solver_path):
     hdu = fits.open(fits_path, output_verify='warn')[0] # NOTE try-except abandoned
 
     from astropy.coordinates import Angle
-    ra = Angle(hdu.header['RA'] + ' hours').to_value()
-    dec = Angle(hdu.header['DEC'] + ' degrees').to_value()
+    if ra is None:
+        ra = Angle(hdu.header['RA'] + ' hours').to_value()
+    else:
+        ra = Angle(ra).to_value()
+    if dec is None:
+        dec = Angle(hdu.header['DEC'] + ' degrees').to_value()
+    else:
+        dec = Angle(dec).to_value()
+        
+
     
     from subprocess import run, DEVNULL
     run([solver_path, '-f', fits_path, '-o', output_path, '-ra', str(ra), '-spd', str(dec + 90)], stdout=DEVNULL)
