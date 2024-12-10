@@ -6,7 +6,6 @@ output relphot_*.fits and binned_*.fits tables
 
 import matplotlib.pyplot as plt
 import astropy.table as table
-import numpy as np
 import astropy.stats as stats
 from newport import *
 
@@ -14,16 +13,19 @@ COLORS = {'B': 'C0', 'V': 'C2', 'R': 'C3', 'I': 'maroon'}
 MARKERS = {'B': 'o', 'V': 'x', 'R': 's', 'I': 'D'}
 
 PLOT_HST = False
+SUFFIX = ''
+SUFFIX = '_rms_nonvar'
 
 if PLOT_HST:
     _, hst, _ = hst_visits()
 
 for fn in target_fn:
+    plotted = False
     fig, axs = plt.subplots(nrows=4, figsize=(10, 10), sharex=True, dpi=300)
     for i, band in enumerate(['B', 'V', 'R', 'I']):
         try:
-            binned_table = table.Table.read(f'tables/binned/binned_{fn}_{band}.fits')
-            unbinned_table = table.Table.read(f'tables/relphot/relphot_{fn}_{band}.fits')
+            binned_table = table.Table.read(f'tables/binned/binned_{fn}_{band}{SUFFIX}.fits')
+            unbinned_table = table.Table.read(f'tables/relphot/relphot_{fn}_{band}{SUFFIX}.fits')
         except FileNotFoundError as e:
             print(str(e))
             continue
@@ -31,8 +33,6 @@ for fn in target_fn:
         # after = binned_table['jd'] > 2460180
         # after = binned['jd'] > 0
         # ax.plot(binned[after]['jd'] - 2400000.5, binned[after]['phot'] / binned_norm, MARKERS[band], c=COLORS[band])
-        if PLOT_HST:
-            plot_hst(fn, hst, axs[i], 'C7')
         axs[i].grid(axis='y', linestyle=':', alpha=0.5)
         axs[i].errorbar(binned_table['jd'] - 2400000.5,
                     binned_table[target_gaia_dr3[fn]],
@@ -44,14 +44,23 @@ for fn in target_fn:
             stats.sigma_clip(binned_table[target_gaia_dr3[fn]], sigma=5, maxiters=None, masked=False)
         )
         axs[i].set_ylim(1 - clipped_std * 5, 1 + clipped_std * 5)
+        _xlim = axs[i].get_xlim()
+        if PLOT_HST:
+            plot_hst(fn.replace('_', ''), hst, axs[i], 'C7')
+        axs[i].set_xlim(_xlim)
 
+        plotted = True
+
+    if not plotted:
+        continue
     fig.supxlabel('MJD', y=0.06)
     fig.supylabel('Relative Flux', x=0.05)
     fig.suptitle(fn, y=0.91)
     fig.legend(loc='upper right', bbox_to_anchor=(0.98, 0.9))
     # ax.set_ylim(0.96, 1.03)
 
-    plt.savefig(f'fig/png/{fn}.png')
+    plt.savefig(f'fig/{fn}{SUFFIX}.pdf')
+    plt.savefig(f'fig/png/{fn}{SUFFIX}.png')
     # plt.show()
     #
     # break

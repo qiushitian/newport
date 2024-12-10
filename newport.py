@@ -9,14 +9,14 @@ import xml.etree as etree
 from datetime import datetime
 
 target_fn = [
-    'HD_86226',
     'HD_191939',
-    'TOI-1759',
-    'TOI-178',
+    'HD_86226',
     'TOI-431',
     'TOI-561',
+    'TOI-1201',
+    'TOI-178',
+    'TOI-1759',
     'TOI-1410',
-    'TOI-1201'
 ]
 
 target_gaia_dr3 = {'HD_86226' : '5660492297395345408',
@@ -27,6 +27,9 @@ target_gaia_dr3 = {'HD_86226' : '5660492297395345408',
                    'TOI-561' : '3850421005290172416',
                    'TOI-1410' : '1958584565350234752',
                    'TOI-1201' : '5157183324996790272'}
+
+COLORS = {'B': 'C0', 'V': 'C2', 'R': 'C3', 'I': 'maroon'}
+MARKERS = {'B': 'o', 'V': 'x', 'R': 's', 'I': 'D'}
 
 def hst_visits():
     """
