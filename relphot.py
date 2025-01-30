@@ -12,7 +12,7 @@ from newport import *
 # CRITERION = 70
 N_COL_HEAD = 5  # TODO replace with str.isdigit()
 
-for fn in target_fn:
+for fn in TARGET_FN:
     # if '191939' in fn or '86226' in fn:
     #     continue
 
@@ -45,7 +45,7 @@ for fn in target_fn:
         # 2
         valid_colnames = []
         for colname in phot_table.colnames[N_COL_HEAD:]:
-            if colname == target_gaia_dr3[fn] \
+            if colname == TARGET_GAIA_DR3[fn] \
                     or not isinstance(phot_table[colname], table.Table.MaskedColumn):
                 valid_colnames.append(colname)
 

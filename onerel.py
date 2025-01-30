@@ -4,15 +4,18 @@ Take photometry_*.fits tables and do relative photometry,
 output relphot_*.fits and binned_*.fits tables
 """
 
-import numpy as np
+# import numpy as np
 from astropy import table
 from newport import *
+# from astroquery.utils.tap.core import TapPlus
+#
+# SIMBAD_TAP = TapPlus(url="http://simbad.u-strasbg.fr/simbad/sim-tap")
 
 # Percentile of non-NaN observations required for column to be considered valid
 # CRITERION = 70
 N_COL_HEAD = 5  # TODO replace with str.isdigit()
 
-for fn in target_fn:
+for fn in TARGET_FN:
     # if '191939' in fn or '86226' in fn:
     #     continue
 
@@ -45,37 +48,32 @@ for fn in target_fn:
         # 2
         valid_colnames = []
         for colname in phot_table.colnames[N_COL_HEAD:]:
-            if colname == target_gaia_dr3[fn] \
+            if colname == TARGET_GAIA_DR3[fn] \
                     or not isinstance(phot_table[colname], table.Table.MaskedColumn):
                 valid_colnames.append(colname)
 
         print(f'{fn}\t{band}\t{len(valid_colnames)}')  # DEV
 
-        valid_table = phot_table[valid_colnames]
+        # valid_table = phot_table[valid_colnames]
 
-        relphot_table = table.Table(names=valid_table.colnames)
-        for row in valid_table:
-            # relphot_row = []
-            row_as_array = np.array(list(row))
-            row_sum = np.nansum(row_as_array)
-            relphot_table.add_row(row_as_array / (row_sum - row_as_array))  # TODO
-            # for i, value in enumerate(row):
-            #     relphot_row.append(value / (row_sum - value))
-            # relphot_table_no_head.add_row(relphot_row)
+        onerel_table = table.Table()  # names=valid_table.colnames
+        for colname in valid_colnames:
+            onerel_table.add_column(phot_table[TARGET_GAIA_DR3[fn]] / phot_table[colname], name=colname)
 
-        # relphot_table = table.hstack([phot_table[phot_table.colnames[ : N_COL_HEAD]], relphot_table_no_head])
-        relphot_table = table.hstack([phot_table[phot_table.colnames[: N_COL_HEAD]], relphot_table])
+        onerel_table = table.hstack([phot_table[phot_table.colnames[: N_COL_HEAD]], onerel_table])
 
-        gpb = relphot_table.group_by(['night', 'band'])
-        binned_relphot = gpb.groups.aggregate(np.median)
+        gpb = onerel_table.group_by(['night', 'band'])
+        binned_onerel = gpb.groups.aggregate(np.median)
         # TODO add std or mad_std here and save it
 
         # band-night normalization
-        for colname in binned_relphot.colnames:
+        # TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # TODO WHAT THE FUC IS GOING ON HERE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        for colname in binned_onerel.colnames:
             if colname.isdigit():
-                med = np.nanmedian(binned_relphot[colname])
-                binned_relphot[colname] /= med
-                relphot_table[colname] /= med
+                med = np.nanmedian(binned_onerel[colname])
+                binned_onerel[colname] /= med
+                onerel_table[colname] /= med
 
-        binned_relphot.write(f'tables/binned/binned_{fn}_{band}.fits', overwrite=True)
-        relphot_table.write(f'tables/relphot/relphot_{fn}_{band}.fits', overwrite=True)
+        binned_onerel.write(f'tables/onerel/binned_onerel_{fn}_{band}.fits', overwrite=False)
+        onerel_table.write(f'tables/onerel/onerel_{fn}_{band}.fits', overwrite=False)
