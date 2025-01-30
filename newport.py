@@ -8,7 +8,7 @@ import urllib.request
 import xml.etree as etree
 from datetime import datetime
 
-target_fn = [
+TARGET_FN = [
     'HD_191939',
     'HD_86226',
     'TOI-431',
@@ -19,7 +19,7 @@ target_fn = [
     'TOI-1410',
 ]
 
-target_gaia_dr3 = {'HD_86226' : '5660492297395345408',
+TARGET_GAIA_DR3 = {'HD_86226' : '5660492297395345408',
                    'HD_191939' : '2248126315275354496',
                    'TOI-1759' : '2216420110788943744',
                    'TOI-178' : '2318295979126499200',

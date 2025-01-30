@@ -50,7 +50,7 @@ for fn in ['TOI-1759', 'TOI-1410']:
         valid_colnames = []
         gaia_g_mags = []
         for colname in phot_table.colnames[N_COL_HEAD:]:
-            if colname == target_gaia_dr3[fn]:
+            if colname == TARGET_GAIA_DR3[fn]:
                 query = f"""
                         SELECT phot_g_mean_mag
                         FROM gaiadr3.gaia_source
@@ -110,7 +110,7 @@ for fn in ['TOI-1759', 'TOI-1410']:
             else:
                 rms = np.sqrt(np.nanmean(data ** 2))  # For regular arrays with possible NaNs
             rmses.append(rms)
-            if col == target_gaia_dr3[fn]:
+            if col == TARGET_GAIA_DR3[fn]:
                 target_index = col_index
         axs[i].plot(gaia_g_mags[: target_index], rmses[: target_index], MARKERS[band], c=COLORS[band])
         try:

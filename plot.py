@@ -19,7 +19,7 @@ SUFFIX = '_rms_nonvar'
 if PLOT_HST:
     _, hst, _ = hst_visits()
 
-for fn in target_fn:
+for fn in TARGET_FN:
     plotted = False
     fig, axs = plt.subplots(nrows=4, figsize=(10, 10), sharex=True, dpi=300)
     for i, band in enumerate(['B', 'V', 'R', 'I']):
@@ -35,13 +35,13 @@ for fn in target_fn:
         # ax.plot(binned[after]['jd'] - 2400000.5, binned[after]['phot'] / binned_norm, MARKERS[band], c=COLORS[band])
         axs[i].grid(axis='y', linestyle=':', alpha=0.5)
         axs[i].errorbar(binned_table['jd'] - 2400000.5,
-                    binned_table[target_gaia_dr3[fn]],
-                    fmt=MARKERS[band], c=COLORS[band], label=band)
+                        binned_table[TARGET_GAIA_DR3[fn]],
+                        fmt=MARKERS[band], c=COLORS[band], label=band)
         axs[i].plot(unbinned_table['jd'] - 2400000.5,
-                    unbinned_table[target_gaia_dr3[fn]],
+                    unbinned_table[TARGET_GAIA_DR3[fn]],
                     MARKERS[band], c=COLORS[band], ms=1, alpha=0.3)
         clipped_std = np.nanstd(
-            stats.sigma_clip(binned_table[target_gaia_dr3[fn]], sigma=5, maxiters=None, masked=False)
+            stats.sigma_clip(binned_table[TARGET_GAIA_DR3[fn]], sigma=5, maxiters=None, masked=False)
         )
         axs[i].set_ylim(1 - clipped_std * 5, 1 + clipped_std * 5)
         _xlim = axs[i].get_xlim()
