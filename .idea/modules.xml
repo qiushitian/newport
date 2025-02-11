@@ -2,7 +2,6 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$USER_HOME$/vacayzone/msa/.idea/msa.iml" filepath="$USER_HOME$/vacayzone/msa/.idea/msa.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/newport.iml" filepath="$PROJECT_DIR$/.idea/newport.iml" />
     </modules>
   </component>

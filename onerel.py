@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """
+`onerel.py` is made obsolete; The functionality is integrated into `magphot.py, by Jan 30, 2025
+
+original:
 Take photometry_*.fits tables and do relative photometry,
 output relphot_*.fits and binned_*.fits tables
 """
