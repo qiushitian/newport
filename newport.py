@@ -70,36 +70,51 @@ with open("comp-mag.json", "r") as f:
     comp_star_mags = json.load(f)
 
 
-def get_comp_mag(star: str, band: str, target: str = None):
+def get_comp_mags(star, band: str, target: str = None):
     """
+    What?
 
     Parameters
     ----------
-    star
-    band
-    target
+    star: (str or list) – comp star Gaia DR3 ID(s)
+    band: d
+    target: d
 
     Returns
     -------
         float
     """
+    is_scalar = False
+    if not isinstance(star, list):
+        star = [star]
+        is_scalar = True
+
     mags = {}
     for target, comp_mag_target in comp_star_mags.items():
-        if star in comp_mag_target[band]:
-            mags[target] = comp_mag_target[band][star]
+        mag_list = []
+        for i_star in star:
+            if i_star in comp_mag_target[band]:
+                mag_list.append(comp_mag_target[band][i_star])
+            else:
+                raise ValueError(f'{i_star} not found in {band} band.')
+        if is_scalar:
+            mags[target] = mag_list[0]
+        else:
+            mags[target] = mag_list
+
     if len(mags) == 1:
         return list(mags.values())[0]
-    elif len(mags) == 0:
-        raise ValueError(f'{star} not found in {band} band.')
-    else:
+    elif len(mags) > 1:
         if target:
             return mags[target]
         else:
-            raise ValueError(f'{star} found in {band} band for targets {mags.keys()}. '
-                             f'Call with `get_comp_mag(band, star, target)`')
+            raise ValueError(f'Stars {star} found in {band} band for targets {mags.keys()}. '
+                             f'Call with `get_comp_mag(star, band, target)`')
+    else:
+        raise RuntimeError('Impossible error???')
 
 
-def super_mag(mags):
+def get_super_mag(mags):
     """
     Calculate the "super" magnitude of a fictional star that has the combined fluxes
     of all stars in the input list/array of magnitudes.
