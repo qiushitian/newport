@@ -3,10 +3,15 @@ Newport functional methods
 """
 
 import numpy as np
+import astropy
 from datetime import datetime
 from astropy.time import Time
 import urllib.request
 import xml.etree as etree
+import matplotlib
+import json
+
+print(f'Numpy {np.version.version}, Astropy {astropy.version.version}, Matplotlib {matplotlib.__version__}')
 
 TARGET_FN = [
     'HD_191939',
@@ -28,8 +33,86 @@ TARGET_GAIA_DR3 = {'HD_86226': '5660492297395345408',
                    'TOI-1410': '1958584565350234752',
                    'TOI-1201': '5157183324996790272'}
 
+LITERATURE_MAG = {'HD_86226': {'B': 8.56, 'V': 7.93, 'R': 7.71, 'I': np.nan}}
+
+COMPARISON_STAR = {
+    'HD_86226': {
+        'B': [
+            '5660477110391333376', '5660490510688955904', '5660494320324102272', '5660496214405409152',
+            '5660501673307548800', '5660503082056820608', '5660516447995041664'
+        ],
+        'V': [
+            '5660477110391333376', '5660490510688955904', '5660501673307548800',
+            '5660503082056820608', '5660516447995041664'
+        ],
+        'R': [
+            '5660490510688955904', '5660516447995041664'  # can add 5660503082056820608
+        ],
+        'I': [
+            '5660516447995041664'  # can add 5660501673307548800, 5660503082056820608
+        ]
+    }
+}
+
+EXCLUDED_COMP_STAR = {
+    'HD_86226': {
+        'B': ['5660517654882236800', '5660474529114240512', '5660494320324102272', '5660496214405409152'],
+        'V': ['5660517654882236800', '5660474529114240512', '5660494320324102272', '5660496214405409152'],
+        'R': ['5660501673307548800', '5660503082056820608'],  # can keep 608
+        'I': ['5660501673307548800', '5660503082056820608']  # can keep 800 and 608
+    }
+}
+
 COLORS = {'B': 'C0', 'V': 'C2', 'R': 'C3', 'I': 'maroon'}
 MARKERS = {'B': 'o', 'V': 'x', 'R': 's', 'I': 'D'}
+
+with open("comp-mag.json", "r") as f:
+    comp_star_mags = json.load(f)
+
+
+def get_comp_mag(star: str, band: str, target: str = None):
+    """
+
+    Parameters
+    ----------
+    star
+    band
+    target
+
+    Returns
+    -------
+        float
+    """
+    mags = {}
+    for target, comp_mag_target in comp_star_mags.items():
+        if star in comp_mag_target[band]:
+            mags[target] = comp_mag_target[band][star]
+    if len(mags) == 1:
+        return list(mags.values())[0]
+    elif len(mags) == 0:
+        raise ValueError(f'{star} not found in {band} band.')
+    else:
+        if target:
+            return mags[target]
+        else:
+            raise ValueError(f'{star} found in {band} band for targets {mags.keys()}. '
+                             f'Call with `get_comp_mag(band, star, target)`')
+
+
+def super_mag(mags):
+    """
+    Calculate the "super" magnitude of a fictional star that has the combined fluxes
+    of all stars in the input list/array of magnitudes.
+
+    Parameters:
+        mags: np.ndarray or list – Magnitudes of individual stars.
+
+    Returns:
+        float: The magnitude of the "super" star.
+    """
+    fluxes = 10 ** (-0.4 * np.array(mags))  # Convert magnitudes to fluxes (flux = 10^(-0.4 * magnitude))
+    total_flux = np.sum(fluxes)  # Sum the fluxes
+    return -2.5 * np.log10(total_flux)  # Convert the total flux back to magnitude
 
 
 def get_hst(target: str, path=None, url=None, future=False):

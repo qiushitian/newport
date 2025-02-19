@@ -46,8 +46,8 @@ for fn in TARGET_FN:
         valid_colnames = []
         for colname in phot_table.colnames[N_COL_HEAD:]:
             if (
-                    isinstance(phot_table[colname], table.Table.MaskedColumn)
-                    and phot_table[colname].mask.sum() / len(phot_table) < (1 - CRITERION)
+                    not isinstance(phot_table[colname], table.Table.MaskedColumn)
+                    or phot_table[colname].mask.sum() / len(phot_table) < (1 - CRITERION)
                     and colname != TARGET_GAIA_DR3[fn]
             ):
                 valid_colnames.append(colname)
