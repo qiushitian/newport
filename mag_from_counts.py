@@ -39,7 +39,7 @@ for fn in TARGET_FN:
     phot_target = TARGET_GAIA_DR3[fn]  # TODO allow different targets
 
     for band in ['B', 'V', 'R', 'I']:
-        if band != 'B':
+        if band == 'B':
             continue
 
         phot_table = phot_table_all_band[phot_table_all_band['band'] == band]
