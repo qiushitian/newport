@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Take photometry_*.fits tables and do relative photometry,
-output relphot_*.fits and binned_*.fits tables
+
 """
 
 import matplotlib.pyplot as plt

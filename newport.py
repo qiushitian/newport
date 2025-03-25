@@ -1,17 +1,20 @@
 """
 Newport functional methods
 """
-
+import ccdproc.version
 import numpy as np
 import astropy
 from datetime import datetime
+
+import photutils.version
 from astropy.time import Time
 import urllib.request
 import xml.etree as etree
 import matplotlib
 import json
 
-print(f'Numpy {np.version.version}, Astropy {astropy.version.version}, Matplotlib {matplotlib.__version__}')
+print(f'Numpy {np.version.version}, Astropy {astropy.version.version}, photutils {photutils.version.version}, '
+      f'ccdproc {ccdproc.version.version}, Matplotlib {matplotlib.__version__}')
 
 TARGET_FN = [
     'HD_191939',
