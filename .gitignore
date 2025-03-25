@@ -3,6 +3,7 @@
 .idea/workspace.xml
 .idea/usage.statistics.xml
 .idea/shelf
+master-calib/flat-cube-r.fits
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
