@@ -1,5 +1,5 @@
 """
-Make flat of specific dates
+Make flat of specific dates. Last edit: master flat is now unnormalized.
 
 From: make_mastercalib.py
 Author: Qiushi (Chris) Tian
@@ -12,6 +12,10 @@ from astropy.io import fits
 import astropy.units as u
 from astropy.nddata import CCDData, StdDevUncertainty
 from convenience_functions import show_image
+from datetime import datetime
+from pytz import timezone
+
+TIMEZONE = timezone('America/New_York')
 
 DATES = ['20230515', '20231102']
 
@@ -48,7 +52,9 @@ if __name__ == '__main__':
         )
 
         try:
-            flat_collection = ccdp.ImageFileCollection(ROOT_PATH / date / 'AutoFlat', glob_exclude='.*', keywords=keywords)
+            flat_collection = ccdp.ImageFileCollection(
+                ROOT_PATH / date / 'AutoFlat', glob_exclude='.*', keywords=keywords
+            )
         except FileNotFoundError:
             continue
 
@@ -73,16 +79,20 @@ if __name__ == '__main__':
                 # sigma_clip=True, sigma_clip_low_thresh=0.5, sigma_clip_high_thresh=0.5,
                 # sigma_clip_func='median', signma_clip_dev_func='mad_std'  # , mem_limit=8e9
             )
+            combined_flat.header['COMMENT'] = 'Median-combined master flat'
 
-            combined_flat.data /= np.nanmedian(combined_flat.data)
+            # combined_flat.data /= np.nanmedian(combined_flat.data)
+            combined_flat.header['COMMENT'] = 'No flat normalization applied'
 
             combined_flat.meta['combined'] = True  # meta ###
-            combined_flat.header['history'] = 'Master flat build with NewPORT, by Qiushi (Chris) Tian'
+            combined_flat.header['history'] = \
+                f'Master flat build with NewPORT (Qiushi Chris Tian) at {datetime.now(TIMEZONE)}'
             # combined_flat.header['history'] = 'MJD-OBS fixed by astropy datfix.'
 
             # (SAVE_PATH / date).mkdir(exist_ok=True)
             combined_flat.write(
-                SAVE_PATH / date / f'master_flat_bdcorrected_{filt}_median.fit', overwrite=True, output_verify='ignore'
+                SAVE_PATH / date / f'master_flat_bdcorrected_{filt}_median_noNorm.fit',
+                overwrite=True, output_verify='ignore'
             )
 
             # show
