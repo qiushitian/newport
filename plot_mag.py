@@ -2,40 +2,54 @@
 """
 
 """
-
+import numpy as np
 import matplotlib.pyplot as plt
 import astropy.table as table
 import astropy.stats as stats
-import matplotlib.dates as mdates
-from matplotlib.ticker import MultipleLocator, FuncFormatter
+# import matplotlib.dates as mdates
+# from matplotlib.ticker import MultipleLocator, FuncFormatter
 import matplotlib.patches as patches
+from scipy.stats import mode
 from pathlib import Path
-from newport import *
+from datetime import datetime
+from astropy.time import Time
+import newport
 
 COLORS = {'B': 'C0', 'V': 'C2', 'R': 'C3', 'I': 'maroon'}
 MARKERS = {'B': 'o', 'V': '>', 'R': 's', 'I': 'D'}
 
 PLOT_HST = True
-READ_DIR = Path('tables/list_runs/with_flat/mag')
+PLOT_ERR = False
+
+READ_DIR = Path('tables/list_runs/ri_more_comp/mag_add_608_i')
+WRITE_FIG_PATH = Path('tables/list_runs/ri_more_comp/fig/add_608_i.pdf')
+
 CUTOFF = Time('2023-03-14')
 # CUTOFF_END = Time('2023-08-01')
 CUTOFF_END = Time('2025-08-01')
+
+MIN_EXP_PER_NIGHT = 5
 N_SIG = 1
 SUFFIX = ''
-PLOT_ERR = False
+
+STD_CUT = 0.2  # mag
 
 
 if __name__ == '__main__':
-    for fn in TARGET_FN:
+    WRITE_FIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+
+    for fn in newport.TARGET_FN:
         # TODO DEV
         if fn != 'HD_86226':
             continue
 
         if PLOT_HST:
-            wfc3, stis = get_hst(fn, path='xml/HST-17192-visit-status-20250205.xml')
+            wfc3, stis = newport.get_hst(fn, path='xml/HST-17192-visit-status-20250205.xml')
 
         plotted = False
         fig, axs = plt.subplots(nrows=4, figsize=(6, 6.5), sharex='all', dpi=300)
+        std_fig, std_axs = plt.subplots(nrows=4, figsize=(6, 7), sharex='all', dpi=300)
         for i, band in enumerate(['B', 'V', 'R', 'I']):
             try:
                 binned_table = table.Table.read(READ_DIR / f'bin_comb_mag_{fn}_{band}{SUFFIX}.fits')
@@ -48,20 +62,18 @@ if __name__ == '__main__':
             time_binned = Time(binned_table['jd'], format='jd')
             time_unbinned = Time(unbinned_table['jd'], format='jd')
 
+            # todo these two logial and can be rewritten with continuous <'s?
             after_binned = np.logical_and(time_binned > CUTOFF, time_binned < CUTOFF_END)
             after_unbinned = np.logical_and(time_unbinned > CUTOFF, time_unbinned < CUTOFF_END)
 
             time_binned = time_binned[after_binned]
             time_unbinned = time_unbinned[after_unbinned]
 
-            data_binned = binned_table['super'].data[after_binned]
-            data_unbinned = unbinned_table['super'].data[after_unbinned]
-            err_binned = binned_table['super_err'].data[after_binned]
-            err_unbinned = unbinned_table['super_err'].data[after_unbinned]
+            binned_table = binned_table[after_binned]
+            unbinned_table = unbinned_table[after_unbinned]
             # end of cutoff
 
             # unbinned std
-            unbinned_table_after = unbinned_table[after_unbinned]
             # gpb = unbinned_table.group_by('night')
             # groups_data = [gpb.groups[i] for i in range(len(gpb.groups))]
             # # Make sure to create a writable copy of the column
@@ -69,50 +81,80 @@ if __name__ == '__main__':
 
             # for j, n in enumerate(np.unique(unbinned_table['night'])):
             #     print(j, n, np.std(unbinned_table[unbinned_table['night'] == n]['combined']))
-            unique_nights = np.unique(unbinned_table_after['night'])
-            nightly_table_list = [unbinned_table_after[unbinned_table_after['night'] == n] for n in unique_nights]
-            nightly_n_exp, nightly_std = [], []
+            nightly_table_list = [unbinned_table[unbinned_table['night'] == n] for n in binned_table['night']]
+            nightly_n_exp = []
             for t in nightly_table_list:
                 nightly_n_exp.append(len(t))
-                nightly_std.append(np.std(t['super']))
-            print(f"{band}\t"
-                  f"n_nights = {len(unique_nights)}\t"
-                  f"med_of_std = {np.nanmean(nightly_std):.5f}\t"  # TODO mean of std
-                  f"max_n_exp = {max(nightly_n_exp)}\t"
-                  f"min_n_exp = {min(nightly_n_exp)}")
 
-            # clipping low nightly_n_exp nights
-            # nightly_n_exp > 5  # TODO
+            # clipping low nightly_n_exp nights todo this is not done to the unbinned data. is that a problem?
+            enough_nightly_exp = np.array(nightly_n_exp) >= MIN_EXP_PER_NIGHT
+            time_binned = time_binned[enough_nightly_exp]
+            binned_table = binned_table[enough_nightly_exp]
 
-            clipped_data = stats.sigma_clip(data_binned, sigma=5, maxiters=None, masked=False)
+            # print overall stats
+            clipped_data = stats.sigma_clip(binned_table['super'], sigma=5, maxiters=None, masked=True)
             clipped_mean = np.nanmean(clipped_data)
             clipped_std = np.nanstd(clipped_data)
-            raw_mean = np.nanmean(data_binned)
-            raw_std = np.nanstd(data_binned)
-            min_data, max_data = np.nanmin(data_binned), np.nanmax(data_binned)
-            mean_err = np.nanmean(err_binned)
-            print(f'{band}\t{clipped_mean:.3f} +/- {raw_std:.3f}\t({max_data:.3f} ~ {min_data:.3f} = {np.max([abs(max_data - clipped_mean), abs(clipped_mean - min_data)]):.3f})', end='\n')
-            print(f'{band}\t{raw_mean:.3f} +/- {raw_std:.3f}\t{mean_err}\t(... = {np.max([abs(max_data - raw_mean), abs(raw_mean - min_data)]):.3f})', end='\n\n')
+            clipped_min, clipped_max = np.nanmin(clipped_data), np.nanmax(clipped_data)
+            raw_mean = np.nanmean(binned_table['super'])
+            raw_std = np.nanstd(binned_table['super'])
+            min_data, max_data = np.nanmin(binned_table['super']), np.nanmax(binned_table['super'])
+            mean_err = np.nanmean(binned_table['super_err'])
+            print(
+                f'{band}  clipped\t{clipped_mean:.3f} +/- {clipped_std:.3f}\t'
+                f'({clipped_max:.3f} ~ {clipped_min:.3f} = '
+                f'{np.max([abs(clipped_max - clipped_mean), abs(clipped_mean - clipped_min)]):.3f})'
+            )
+            print(
+                f'{band}      raw\t{raw_mean:.3f} +/- {raw_std:.3f}\t'
+                f'({max_data:.3f} ~ {min_data:.3f} = '
+                f'{np.max([abs(max_data - raw_mean), abs(raw_mean - min_data)]):.3f})'
+            )
+            print(f'{band} mean_err\t{mean_err}')
 
+            # print nightly stats
+            unique_nights = binned_table[~clipped_data.mask]['night']
+            nightly_table_list = [unbinned_table[unbinned_table['night'] == n] for n in unique_nights]
+            nightly_n_exp, std_exp = [], []
+            for t in nightly_table_list:
+                nightly_n_exp.append(len(t))
+                std_exp.append(np.std(t['super']))
+            std_exp = np.array(std_exp)
+            mean_std_exp = np.nanmean(std_exp)
+            med_std_exp = np.nanmedian(std_exp)
+            print(f"{band}\t"
+                  f"n_nights_used = {len(unique_nights)}\t"
+                  f"mean_of_std = {mean_std_exp:.5f}\t"
+                  f"med_of_std = {med_std_exp:.5f}\t"
+                  f"max_n_exp = {max(nightly_n_exp)}\t"
+                  f"mode_n_exp = {mode(nightly_n_exp).mode}\t"
+                  f"min_n_exp = {min(nightly_n_exp)}\n")
+
+            # plot
             if PLOT_ERR:
                 axs[i].errorbar(
-                    time_unbinned.to_datetime(), data_unbinned, yerr=err_unbinned, fmt=MARKERS[band],
+                    time_unbinned.to_datetime(), unbinned_table['super'],
+                    yerr=unbinned_table['super_err'], fmt=MARKERS[band],
                     c='silver', ms=4, alpha=0.3, markeredgewidth=0, ecolor='lightgrey', elinewidth=1
                 )
                 axs[i].errorbar(
-                    time_binned.to_datetime(), data_binned, yerr=err_binned, fmt=MARKERS[band],
+                    time_binned.to_datetime(), binned_table['super'],
+                    yerr=binned_table['super_err'], fmt=MARKERS[band],
                     c=COLORS[band], ms=7, alpha=0.7, markeredgewidth=0, zorder=2.10, label=f'{band} band'
                 )
             else:
                 axs[i].plot(
-                    time_unbinned.to_datetime(), data_unbinned, MARKERS[band],
+                    time_unbinned.to_datetime(), unbinned_table['super'],
+                    MARKERS[band],
                     c='lightgrey', ms=4, alpha=0.5, markeredgewidth=0
                 )
                 axs[i].plot(
-                    time_binned.to_datetime(), data_binned, MARKERS[band],
+                    time_binned.to_datetime(), binned_table['super'],
+                    MARKERS[band],
                     c=COLORS[band], ms=7, alpha=0.7, markeredgewidth=0, label=f'{band} band'
                 )
 
+            # mean line and std patch
             axs[i].axhline(clipped_mean, color=COLORS[band], lw=1, alpha=0.4)
             # axs[i].axhline(clipped_mean - raw_std * N_SIG, color=COLORS[band], lw=1, alpha=0.4, ls=':')
             # axs[i].axhline(clipped_mean + raw_std * N_SIG, color=COLORS[band], lw=1, alpha=0.4, ls=':')
@@ -140,10 +182,17 @@ if __name__ == '__main__':
                 for _ in stis:
                     stis_line = axs[i].axvline(_.to_datetime(), ls='--', c='C1', linewidth=2, alpha=0.5)
 
+            # std_exp plot
+            std_axs[i].hist(std_exp[std_exp < STD_CUT], bins=40, color=COLORS[band])
+            mean_std_line = std_axs[i].axvline(mean_std_exp, ls='--', c='C1')
+            med_std_line = std_axs[i].axvline(med_std_exp, ls=':', c='C1')
+            std_all_line = std_axs[i].axvline(clipped_std, ls='-', c='C1')
+
             plotted = True
 
+        # below is out of band loop
         if plotted:
-            axs[3].set_xlim(datetime(2023, 3, 2), datetime(2024, 5, 25))
+            axs[-1].set_xlim(datetime(2023, 3, 2), datetime(2024, 5, 25))
 
             # Set x-axis ticks for "YYYY-MM, -MM"
             # axs[3].xaxis.set_major_formatter(mdates.DateFormatter('%b\n%Y'))
@@ -165,17 +214,179 @@ if __name__ == '__main__':
                 handles.extend([wfc3_line, stis_line])
                 labels.extend(['HST WFC3 planetary transit obs.', 'HST STIS host star observation'])
 
-            fig.legend(ncol=3, loc='upper center', bbox_to_anchor=(0.54, 1.009),
-                       handles=handles, labels=labels)  # , ['WFC3 transit visits', 'STIS UV visit'])
+            fig.legend(
+                ncol=3, loc='upper center', bbox_to_anchor=(0.54, 1.009), handles=handles, labels=labels
+            )  # , ['WFC3 transit visits', 'STIS UV visit'])
             fig.tight_layout()
             fig.subplots_adjust(top=0.915)
 
-            plt.savefig(f'fig/paper/monitoring_with_flat_no_nExpNight_clip.pdf')
-            # plt.savefig(f'fig/png/{fn}{SUFFIX}.png')
-            # plt.show()
+            # add label to std plot
+            std_fig.suptitle(r'Exposure-to-exposure std $\sigma_\mathrm{exp}$ within a given night', y=0.98)
+            # std_axs[-1].set_xlim(0, STD_CUT)
+            std_fig.supxlabel('mag', y=0.03)
+            std_fig.supylabel('Number', x=0.03)
+            std_fig.legend(
+                loc='upper right', bbox_to_anchor=(1, 0.96),  # ncol=3,
+                handles=[mean_std_line, med_std_line, std_all_line],
+                labels=[
+                    r'Mean exp-to-exp, $\langle \sigma_\mathrm{exp} \rangle$',
+                    r'Median exp-to-exp, $\mathrm{med} \left( \sigma_\mathrm{exp} \right)$',
+                    r'Night-to-night entire light curve, $\sigma_\mathrm{all}$'
+                ]
+            )  # , ['WFC3 transit visits', 'STIS UV visit'])
+            std_fig.tight_layout()
+            std_fig.subplots_adjust(top=0.915)
+
+            # plot fig (main)
+            if not WRITE_FIG_PATH.exists() or input(
+                    f'{WRITE_FIG_PATH} already exists. Overwrite? y* / []'
+            ).startswith('y'):
+                fig.savefig(WRITE_FIG_PATH)
+            else:
+                pass  # TODO DEV
+                # fig.show()
+                # write_fig_path = WRITE_FIG_PATH.parent / (WRITE_FIG_PATH.stem + '_' + WRITE_FIG_PATH.suffix)
+                # plt.savefig(write_fig_path)
+                # print(f'Wrote {write_fig_path}')
+
+            # plot std fig
+            std_fig_path = WRITE_FIG_PATH.parent / (WRITE_FIG_PATH.stem + '_std' + WRITE_FIG_PATH.suffix)
+            if not std_fig_path.exists() or input(
+                    f'{std_fig_path} already exists. Overwrite? y* / []'
+            ).startswith('y'):
+                std_fig.savefig(std_fig_path)
+            else:
+                std_fig.show()
 
         break  # TODO dev
 
+
+# add 608 to I band
+# B  clipped	8.588 +/- 0.023	(8.623 ~ 8.516 = 0.071)
+# B      raw	8.588 +/- 0.023	(8.623 ~ 8.516 = 0.071)
+# B mean_err	0.004108661125223599
+# B	n_nights_used = 42	mean_of_std = 0.03197	med_of_std = 0.01522	max_n_exp = 20	mode_n_exp = 20	min_n_exp = 6
+# V  clipped	7.908 +/- 0.031	(8.027 ~ 7.786 = 0.122)
+# V      raw	7.903 +/- 0.050	(8.027 ~ 7.619 = 0.284)
+# V mean_err	0.007197457372090939
+# V	n_nights_used = 52	mean_of_std = 0.06301	med_of_std = 0.01919	max_n_exp = 20	mode_n_exp = 20	min_n_exp = 7
+# R  clipped	7.734 +/- 0.016	(7.778 ~ 7.699 = 0.044)
+# R      raw	7.734 +/- 0.016	(7.778 ~ 7.699 = 0.044)
+# R mean_err	0.004941270825388858
+# R	n_nights_used = 45	mean_of_std = 0.03903	med_of_std = 0.02796	max_n_exp = 20	mode_n_exp = 20	min_n_exp = 5
+# I  clipped	7.179 +/- 0.030	(7.265 ~ 7.080 = 0.099)
+# I      raw	7.179 +/- 0.030	(7.265 ~ 7.080 = 0.099)
+# I mean_err	0.009103442517708213
+# I	n_nights_used = 46	mean_of_std = 0.05438	med_of_std = 0.03263	max_n_exp = 20	mode_n_exp = 20	min_n_exp = 5
+
+# max RI comp star
+# B  clipped	8.588 +/- 0.023	(8.623 ~ 8.516 = 0.071)
+# B      raw	8.588 +/- 0.023	(8.623 ~ 8.516 = 0.071)
+# B mean_err	0.004108661125223599
+# B	n_nights_used = 42	mean_of_std = 0.03197	med_of_std = 0.01522	max_n_exp = 20	mode_n_exp = 20	min_n_exp = 6
+# V  clipped	7.908 +/- 0.031	(8.027 ~ 7.786 = 0.122)
+# V      raw	7.903 +/- 0.050	(8.027 ~ 7.619 = 0.284)
+# V mean_err	0.007197457372090939
+# V	n_nights_used = 52	mean_of_std = 0.06301	med_of_std = 0.01919	max_n_exp = 20	mode_n_exp = 20	min_n_exp = 7
+# R  clipped	7.809 +/- 0.014	(7.838 ~ 7.770 = 0.039)
+# R      raw	7.809 +/- 0.014	(7.838 ~ 7.770 = 0.039)
+# R mean_err	0.004363269605927124
+# R	n_nights_used = 44	mean_of_std = 0.03341	med_of_std = 0.02401	max_n_exp = 20	mode_n_exp = 20	min_n_exp = 5
+# I  clipped	7.171 +/- 0.036	(7.253 ~ 7.035 = 0.136)
+# I      raw	7.171 +/- 0.036	(7.253 ~ 7.035 = 0.136)
+# I mean_err	0.007626714178105931
+# I	n_nights_used = 46	mean_of_std = 0.05289	med_of_std = 0.03068	max_n_exp = 20	mode_n_exp = 20	min_n_exp = 5
+
+
+# std calculated from clipped data - min exp per night = 5
+# B  clipped	8.588 +/- 0.023	(8.623 ~ 8.516 = 0.071)
+# B      raw	8.588 +/- 0.023	(8.623 ~ 8.516 = 0.071)
+# B mean_err	0.004108661125223599
+# B	n_nights_used = 42	mean_of_std = 0.03197	med_of_std = 0.01522	max_n_exp = 20	mode_n_exp = 20	min_n_exp = 6
+# V  clipped	7.908 +/- 0.031	(8.027 ~ 7.786 = 0.122)
+# V      raw	7.903 +/- 0.050	(8.027 ~ 7.619 = 0.284)
+# V mean_err	0.007197457372090939
+# V	n_nights_used = 52	mean_of_std = 0.06301	med_of_std = 0.01919	max_n_exp = 20	mode_n_exp = 20	min_n_exp = 7
+# R  clipped	7.734 +/- 0.016	(7.778 ~ 7.699 = 0.044)
+# R      raw	7.734 +/- 0.016	(7.778 ~ 7.699 = 0.044)
+# R mean_err	0.004941270825388858
+# R	n_nights_used = 45	mean_of_std = 0.03903	med_of_std = 0.02796	max_n_exp = 20	mode_n_exp = 20	min_n_exp = 5
+# I  clipped	7.179 +/- 0.032	(7.255 ~ 7.036 = 0.142)
+# I      raw	7.179 +/- 0.032	(7.255 ~ 7.036 = 0.142)
+# I mean_err	0.010910028558765323
+# I	n_nights_used = 46	mean_of_std = 0.08803	med_of_std = 0.03828	max_n_exp = 20	mode_n_exp = 20	min_n_exp = 5
+
+# std calculated from clipped data - min exp per night = 3
+# B  clipped	8.589 +/- 0.023	(8.624 ~ 8.516 = 0.072)
+# B      raw	8.589 +/- 0.023	(8.624 ~ 8.516 = 0.072)
+# B mean_err	0.00500839127455843
+# B	n_nights_used = 45	mean_of_std = 0.03186	med_of_std = 0.01581	max_n_exp = 20	mode_n_exp = 20	min_n_exp = 3
+# V  clipped	7.908 +/- 0.031	(8.027 ~ 7.786 = 0.122)
+# V      raw	7.903 +/- 0.050	(8.027 ~ 7.619 = 0.284)
+# V mean_err	0.007197457372090939
+# V	n_nights_used = 52	mean_of_std = 0.06301	med_of_std = 0.01919	max_n_exp = 20	mode_n_exp = 20	min_n_exp = 7
+# R  clipped	7.734 +/- 0.016	(7.778 ~ 7.699 = 0.044)
+# R      raw	7.734 +/- 0.016	(7.778 ~ 7.699 = 0.044)
+# R mean_err	0.004941270825388858
+# R	n_nights_used = 45	mean_of_std = 0.03903	med_of_std = 0.02796	max_n_exp = 20	mode_n_exp = 20	min_n_exp = 5
+# I  clipped	7.179 +/- 0.032	(7.255 ~ 7.036 = 0.142)
+# I      raw	7.179 +/- 0.032	(7.255 ~ 7.036 = 0.142)
+# I mean_err	0.010910028558765323
+# I	n_nights_used = 46	mean_of_std = 0.08803	med_of_std = 0.03828	max_n_exp = 20	mode_n_exp = 20	min_n_exp = 5
+
+# std calculated from clipped data - > 5 nightly exp (i.e. min 6)
+# B  clipped	8.588 +/- 0.023	(8.623 ~ 8.516 = 0.071)
+# B      raw	8.588 +/- 0.023	(8.623 ~ 8.516 = 0.071)
+# B mean_err	0.004108661125223599
+# B	n_nights_used = 42	mean_of_std = 0.03197	med_of_std = 0.01522	max_n_exp = 20	mode_n_exp = ModeResult(mode=20, count=29)	min_n_exp = 6
+# V  clipped	7.908 +/- 0.031	(8.027 ~ 7.786 = 0.122)
+# V      raw	7.903 +/- 0.050	(8.027 ~ 7.619 = 0.284)
+# V mean_err	0.007197457372090939
+# V	n_nights_used = 52	mean_of_std = 0.06301	med_of_std = 0.01919	max_n_exp = 20	mode_n_exp = ModeResult(mode=20, count=38)	min_n_exp = 7
+# R  clipped	7.733 +/- 0.016	(7.778 ~ 7.699 = 0.045)
+# R      raw	7.733 +/- 0.016	(7.778 ~ 7.699 = 0.045)
+# R mean_err	0.004596473153035841
+# R	n_nights_used = 44	mean_of_std = 0.03728	med_of_std = 0.02752	max_n_exp = 20	mode_n_exp = ModeResult(mode=20, count=36)	min_n_exp = 13
+# I  clipped	7.179 +/- 0.032	(7.255 ~ 7.036 = 0.143)
+# I      raw	7.179 +/- 0.032	(7.255 ~ 7.036 = 0.143)
+# I mean_err	0.010733369789249712
+# I	n_nights_used = 45	mean_of_std = 0.08685	med_of_std = 0.03748	max_n_exp = 20	mode_n_exp = ModeResult(mode=20, count=37)	min_n_exp = 6
+
+# unnorm flat - yes nightly exp cut
+# B	n_nights = 47	mean_of_std = 0.03060	med_of_std = 0.01572	max_n_exp = 20	min_n_exp = 1
+# B  clipped	8.588 +/- 0.023	(8.623 ~ 8.516 = 0.071)
+# B      raw	8.588 +/- 0.023	(8.623 ~ 8.516 = 0.071)
+# B mean_err	0.004108661125223599
+# V	n_nights = 53	mean_of_std = 0.07791	med_of_std = 0.01945	max_n_exp = 20	min_n_exp = 7
+# V  clipped	7.908 +/- 0.031	(8.027 ~ 7.786 = 0.122)
+# V      raw	7.903 +/- 0.050	(8.027 ~ 7.619 = 0.284)
+# V mean_err	0.007197457372090939
+# R	n_nights = 46	mean_of_std = 0.03818	med_of_std = 0.02752	max_n_exp = 20	min_n_exp = 1
+# R  clipped	7.733 +/- 0.016	(7.778 ~ 7.699 = 0.045)
+# R      raw	7.733 +/- 0.016	(7.778 ~ 7.699 = 0.045)
+# R mean_err	0.004596473153035841
+# I	n_nights = 48	mean_of_std = 0.08446	med_of_std = 0.03745	max_n_exp = 20	min_n_exp = 1
+# I  clipped	7.179 +/- 0.032	(7.255 ~ 7.036 = 0.143)
+# I      raw	7.179 +/- 0.032	(7.255 ~ 7.036 = 0.143)
+# I mean_err	0.010733369789249712
+
+# unnorm flat - no nightly exp cut
+# B	n_nights = 47	mean_of_std = 0.03060	med_of_std = 0.01572	max_n_exp = 20	min_n_exp = 1
+# B  clipped	8.590 +/- 0.023	(8.631 ~ 8.516 = 0.073)
+# B      raw	8.590 +/- 0.023	(8.631 ~ 8.516 = 0.073)
+# B mean_err	0.005814633904479185
+# V	n_nights = 53	mean_of_std = 0.07791	med_of_std = 0.01945	max_n_exp = 20	min_n_exp = 7
+# V  clipped	7.908 +/- 0.031	(8.027 ~ 7.786 = 0.122)
+# V      raw	7.903 +/- 0.050	(8.027 ~ 7.619 = 0.284)
+# V mean_err	0.007197457372090939
+# R	n_nights = 46	mean_of_std = 0.03818	med_of_std = 0.02752	max_n_exp = 20	min_n_exp = 1
+# R  clipped	7.734 +/- 0.016	(7.778 ~ 7.699 = 0.044)
+# R      raw	7.730 +/- 0.030	(7.778 ~ 7.561 = 0.168)
+# R mean_err	0.00547067259977868
+# I	n_nights = 48	mean_of_std = 0.08446	med_of_std = 0.03745	max_n_exp = 20	min_n_exp = 1
+# I  clipped	7.179 +/- 0.045	(7.352 ~ 7.036 = 0.173)
+# I      raw	7.179 +/- 0.045	(7.352 ~ 7.036 = 0.173)
+# I mean_err	0.018703098435682252
 
 # with flat
 # med nightly std

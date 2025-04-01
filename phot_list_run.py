@@ -32,13 +32,13 @@ BANDS = ['B', 'V', 'R', 'I']
 
 SCI_PATH = Path('/Volumes/emlaf/westep-transfer/mountpoint/space-raw/HD 86226')
 CALIB_PATH = Path('/Volumes/emlaf/westep-transfer/mastercalib-2025-no_flat')
-WRITE_PATH = Path('tables/list_runs/with_flat/phot')
+WRITE_PATH = Path('tables/list_runs/ri_more_comp/phot')
 WRITE_PATH.mkdir(parents=True, exist_ok=True)
 
 FLAT_NO_OVERSCAN_DATE, FLAT_WITH_OVERSCAN_DATE = '20230515', '20231102'
 
-DATE_RANGE_START = 20010101  # 20230314
-DATE_RANGE_END = 21000101  # 20230801
+DATE_RANGE_START = '20010101'  # 20230314
+DATE_RANGE_END = '21230501'  # 20230801
 
 FIRST_OVERSCAN = '20230721'
 
@@ -86,6 +86,12 @@ if __name__ == '__main__':
 
     # list of dates
     date_list = list(SCI_PATH.glob('[!.]*'))
+    date_list.sort()
+
+    # keep only dates in range
+    date_list = [date_path for date_path in date_list if DATE_RANGE_START < date_path.name < DATE_RANGE_END]
+
+    # Initialize alternative progress bar
     date_count = 0
 
     for date_path in tqdm(date_list):
@@ -99,11 +105,6 @@ if __name__ == '__main__':
         # alternative progress bar
         date_count += 1
         # print(f'{date_count}\t{date}')
-
-        # date int and skip
-        date_int = int(date)
-        if date_int < DATE_RANGE_START or date_int > DATE_RANGE_END:
-            continue
 
         # open calibration files
         try:
@@ -172,7 +173,8 @@ if __name__ == '__main__':
 
                     # flat
                     with fits.open(
-                            CALIB_PATH / flat_date / f'master_flat_bdcorrected_{data.meta["FILTER"]}_median.fit',
+                            CALIB_PATH / flat_date /
+                            f'master_flat_bdcorrected_{data.meta["FILTER"]}_median_noNorm.fit',
                             output_verify='ignore'
                     ) as flat_hdul:
                         ccd_flat_data = CCDData(
