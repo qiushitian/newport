@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
 
+from: plot_mag.py
+
+Created: 2025 May 13
 """
 import numpy as np
 import matplotlib.pyplot as plt

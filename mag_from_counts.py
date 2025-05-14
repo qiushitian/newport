@@ -14,10 +14,11 @@ from pathlib import Path
 from scipy.stats import mode
 import newport
 
-OVERWRITE = True
-ROOT_DIR = Path('tables/list_runs/ri_more_comp')
-READ_DIR = ROOT_DIR / 'phot'
-WRITE_DIR = ROOT_DIR / 'mag_add_608_i'
+OVERWRITE = False
+# TARGET = 'TOI-1201'
+ROOT_DIR = Path('tables/list_runs/1201')
+READ_DIR = ROOT_DIR / 'phot_list_run'
+WRITE_DIR = ROOT_DIR / 'mag_2comp'
 REQUIRE_ROW_COMPLETE = True
 N_COL_HEAD = 7  # TODO replace with str.isdigit()
 
@@ -90,7 +91,7 @@ if __name__ == '__main__':
             raise RuntimeError('User terminated due to positive overwrite.')
 
     for fn in newport.TARGET_FN:
-        if '86226' not in fn:
+        if '1201' not in fn:
             continue
 
         phot_table_all_band = table.Table.read(READ_DIR / f'phot_w_err_{fn}.fits')
@@ -118,7 +119,7 @@ if __name__ == '__main__':
             phot_table, err_table = delete_incomplete_rows(phot_table, err_table)
             phot_table, err_table = keep_only_mode_exptime(phot_table, err_table)
 
-            super_mag = newport.get_super_mag(newport.get_comp_mags(comp_star_list, band))
+            super_mag = newport.get_super_mag(newport.get_comp_mags(comp_star_list, band))  # , TARGET))
 
             # <-------> -> v -> unbin_comb_mag_...[super]
             super_count = np.sum([phot_table[_] for _ in comp_star_list], axis=0)

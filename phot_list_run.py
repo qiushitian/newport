@@ -21,18 +21,19 @@ from tqdm import tqdm
 from astropy.table import QTable
 import ccdproc
 from astropy.nddata import CCDData, StdDevUncertainty
+import concurrent.futures
 
 
-FIELD = 'HD_86226'
+FIELD = 'TOI-1201'
 
 APER_SIZE_FACTOR = 1.4
 APSIZE = np.array([14, 50, 90]) * 0.699  # tuple values in PIXEL (converted to arcsec)
 
 BANDS = ['B', 'V', 'R', 'I']
 
-SCI_PATH = Path('/Volumes/emlaf/westep-transfer/mountpoint/space-raw/HD 86226')
+SCI_PATH = Path('/Volumes/emlaf/westep-transfer/mountpoint/space-raw/TOI 1201')
 CALIB_PATH = Path('/Volumes/emlaf/westep-transfer/mastercalib-2025-no_flat')
-WRITE_PATH = Path('tables/list_runs/ri_more_comp/phot')
+WRITE_PATH = Path('tables/list_runs/1201/phot_list_run')
 WRITE_PATH.mkdir(parents=True, exist_ok=True)
 
 FLAT_NO_OVERSCAN_DATE, FLAT_WITH_OVERSCAN_DATE = '20230515', '20231102'
@@ -42,11 +43,17 @@ DATE_RANGE_END = '21230501'  # 20230801
 
 FIRST_OVERSCAN = '20230721'
 
+NANMIN_MAX_TIME = 60  # s
+
 
 def error_func(data, gain=1.85):
     # return np.sqrt(data)
     # return np.sqrt(data / gain)
     return calc_total_error(data.astype(float), 0, gain)
+
+
+def get_fwhm_nanmin(aperture_stats: ApertureStats):
+    return np.nanmin(aperture_stats.fwhm)
 
 
 if __name__ == '__main__':
@@ -93,6 +100,9 @@ if __name__ == '__main__':
 
     # Initialize alternative progress bar
     date_count = 0
+
+    # aper_size skip count
+    aper_size_skip_count = 0
 
     for date_path in tqdm(date_list):
     # for date_path in date_list:  # no tqdm
@@ -189,7 +199,22 @@ if __name__ == '__main__':
                     invalid_aper = np.isnan(centroids[:, 0])
 
                     # setting real aperture size
-                    aper_size = np.nanmin(raw_aperstats.fwhm.to(u.pixel).value) * APER_SIZE_FACTOR
+                    aper_size = 2
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                        future = executor.submit(get_fwhm_nanmin, raw_aperstats[~invalid_aper])
+                        try:
+                            aper_size = future.result(timeout=NANMIN_MAX_TIME)
+                        except concurrent.futures.TimeoutError:
+                            print(f"Skipping item {file} due to timeout.")
+                            aper_size_skip_count += 1
+                            continue
+                    # aper_size = get_nanmin(raw_aperstats[~invalid_aper].fwhm)  # non-parallel version
+                    if not np.isfinite(aper_size):
+                        continue
+                    aper_size = aper_size.to(u.pixel).value
+                    aper_size = 2 if aper_size < 2 else aper_size
+                    aper_size *= APER_SIZE_FACTOR
+                    print(f'\033[91maper_size = {aper_size}\033[0m')  # TODO DEV
                     # aper_size = raw_aperstats.fwhm[0].to(u.pixel).value * APER_SIZE_FACTOR
 
                     # get background
@@ -278,7 +303,10 @@ if __name__ == '__main__':
         del ccd_bias_data
         del ccd_dark_data
 
-    target_name = SCI_PATH.name.replace(' ', '_')
+    # print skip count dur to ApertureStats timeout
+    print(f'aper_size_skip_count = {aper_size_skip_count}')
+
+    target_name = SCI_PATH.name.replace('HD ', 'HD_').replace('TOI ', 'TOI-')
     try:
         phot_table.write(WRITE_PATH / f'phot_w_err_{target_name}.fits')
         err_table.write(WRITE_PATH / f'err_{target_name}.fits')

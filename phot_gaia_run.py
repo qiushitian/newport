@@ -3,6 +3,8 @@
 Find Gaia sources on images and do photometry
 
 Author: Qiushi (Chris) Tian
+
+Updated: 2025 May 13 - add flat correction
 """
 
 from pathlib import Path
@@ -31,12 +33,25 @@ import ccdproc as ccdp
 from astropy.nddata import CCDData, StdDevUncertainty
 from astropy.timeseries import LombScargle
 import time
+import concurrent.futures
+import newport
 
 
-coord = SkyCoord(ra='149.123515d', dec='-24.099186d')
-SCI_PATH = Path('/Volumes/emlaf/westep-transfer/mountpoint/space-raw/HD 86226')
+NANMIN_MAX_TIME = 60  # s
+
+
+def get_fwhm_nanmin(aperture_stats: ApertureStats):
+    return np.nanmin(aperture_stats.fwhm)
+
+
+coord = newport.TARGET_SKYCOORD['TOI-1201']
+SCI_PATH = Path('/Volumes/emlaf/westep-transfer/mountpoint/space-raw/TOI 1201')
 CALIB_PATH = Path('/Volumes/emlaf/westep-transfer/mastercalib-2025-no_flat')
-WRITE_PATH = Path('tables/phot/bd-sqrt-full-2')
+WRITE_PATH = Path('tables/list_runs/1201/phot_gaia_run')
+WRITE_PATH.mkdir(parents=True, exist_ok=True)
+
+FLAT_NO_OVERSCAN_DATE, FLAT_WITH_OVERSCAN_DATE = '20230515', '20231102'
+FIRST_OVERSCAN = '20230721'
 
 DATE_RANGE_START = 20010101  # 20230314
 DATE_RANGE_END = 21000101  # 20230801
@@ -104,50 +119,47 @@ for source_id in gaia_table['SOURCE_ID']:
 date_list = list(SCI_PATH.glob('[!.]*'))
 date_count = 0
 
+# aper_size skip count
+aper_size_skip_count = 0
+
 # for date_path in tqdm(date_list):
 for date_path in date_list:  # no tqdm
     # date string
     date = date_path.name
+
+    # determine flat with overscan or not
+    flat_date = FLAT_NO_OVERSCAN_DATE if date < FIRST_OVERSCAN else FLAT_WITH_OVERSCAN_DATE
 
     # alternative progress bar
     date_count += 1
     # print(f'{date_count}\t{date}')
 
     # date int and skip
-    date_int = int(date)
+    try:
+        date_int = int(date)
+    except ValueError:  # if not int date
+        continue
     if date_int < DATE_RANGE_START or date_int > DATE_RANGE_END:
         continue
 
     # open calibration files
     try:
-        with fits.open(CALIB_PATH / date / 'master_bias.fit', output_verify='warn') as b:
-            ccd_bias_data = CCDData(
-                b[0].data, StdDevUncertainty(b[2].data, unit='adu'), b[1].data, meta=b[0].header, unit='adu'  # TODO confirm stddecuncert is the right uncert
+        with fits.open(
+                CALIB_PATH / date / 'master_bias.fit', output_verify='ignore'
+        ) as b:
+            ccd_bias_data = CCDData(  # TODO confirm stddecuncert is the right uncert
+                b[0].data, StdDevUncertainty(b[2].data, unit='adu'), b[1].data, meta=b[0].header, unit='adu'
             )
-        # with fits.open(CALIB_PATH / date / 'master_flat_bdcorrected_B.fit', output_verify='warn') as bf:
-        #     ccd_bflat_data = CCDData(
-        #         bf[0].data, StdDevUncertainty(bf[2].data, unit='adu'), bf[1].data, unit='adu'
-        #     )
-        # with fits.open(CALIB_PATH / date / 'master_flat_bdcorrected_V.fit', output_verify='warn') as vf:
-        #     ccd_vflat_data = CCDData(
-        #         vf[0].data, StdDevUncertainty(vf[2].data, unit='adu'), vf[1].data, unit='adu'
-        #     )
-        # with fits.open(CALIB_PATH / date / 'master_flat_bdcorrected_R.fit', output_verify='warn') as rf:
-        #     ccd_rflat_data = CCDData(
-        #         rf[0].data, StdDevUncertainty(rf[2].data, unit='adu'), rf[1].data, unit='adu'
-        #     )
-        # with fits.open(CALIB_PATH / date / 'master_flat_bdcorrected_I.fit', output_verify='warn') as fi:
-        #     ccd_iflat_data = CCDData(
-        #         fi[0].data, StdDevUncertainty(fi[2].data, unit='adu'), fi[1].data, unit='adu'
-        #     )
     except (ValueError, FileNotFoundError):
-        print(f'\n{date} missing bias, dropped')  #  or flat(s)
+        print(f'\n{date} dropped because of missing bias.')
         continue
 
     ccd_dark_data = None
     for dark_t in range(600, 0, -1):
         try:
-            with fits.open(CALIB_PATH / date / f'master_dark_bias-subtracted_{dark_t}s.fit', output_verify='warn') as d:
+            with fits.open(
+                    CALIB_PATH / date / f'master_dark_bias-subtracted_{dark_t}s.fit', output_verify='ignore'
+            ) as d:
                 ccd_dark_data = CCDData(
                     d[0].data, StdDevUncertainty(d[2].data, unit='adu'), d[1].data, meta=d[0].header, unit='adu'
                 )
@@ -161,7 +173,7 @@ for date_path in date_list:  # no tqdm
         if ccd_dark_data is None:
             raise NameError
     except NameError:
-        print(f'\n{date} missing dark, dropped')   # TODO DEV terned off. For normal use, turn on
+        print(f'\n{date} dropped because of missing dark')
         continue
 
     file_list = list(date_path.glob("[!._]*.wcs"))
@@ -191,13 +203,42 @@ for date_path in date_list:  # no tqdm
                 # end_time = time.perf_counter()
                 # print(f"\t\t\t{end_time - start_time} s\n")
 
+                # flat
+                with fits.open(
+                        CALIB_PATH / flat_date /
+                        f'master_flat_bdcorrected_{data.meta["FILTER"]}_median_noNorm.fit',
+                        output_verify='ignore'
+                ) as flat_hdul:
+                    ccd_flat_data = CCDData(
+                        flat_hdul[0].data, StdDevUncertainty(flat_hdul[2].data, unit='adu'),
+                        flat_hdul[1].data, unit='adu'
+                    )
+                data = ccdp.flat_correct(data, ccd_flat_data)
+
                 data_err = data.uncertainty.array
 
-                # centroiding and setting aperture size
+                # centroiding and invalid aper
                 raw_aperstats = ApertureStats(data, aperture)
                 centroids = raw_aperstats.centroid
                 invalid_aper = np.isnan(centroids[:, 0])
-                aper_size = np.nanmin(raw_aperstats.fwhm.to(u.pixel).value) * APER_SIZE_FACTOR
+
+                # setting aperture size with parallelization
+                aper_size = 2
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(get_fwhm_nanmin, raw_aperstats[~invalid_aper])
+                    try:
+                        aper_size = future.result(timeout=NANMIN_MAX_TIME)
+                    except concurrent.futures.TimeoutError:
+                        print(f"Skipping item {file} due to timeout.")
+                        aper_size_skip_count += 1
+                        continue
+                # aper_size = get_nanmin(raw_aperstats[~invalid_aper].fwhm)  # non-parallel version
+                if not np.isfinite(aper_size):
+                    continue
+                aper_size = aper_size.to(u.pixel).value
+                aper_size = 2 if aper_size < 2 else aper_size
+                aper_size *= APER_SIZE_FACTOR
+                print(f'\033[91maper_size = {aper_size}\033[0m')  # TODO DEV
 
                 # get background
                 sigclip = SigmaClip(sigma=3.0, maxiters=10)
@@ -280,7 +321,10 @@ for date_path in date_list:  # no tqdm
     del ccd_bias_data
     del ccd_dark_data
 
-target_name = SCI_PATH.name.replace(' ', '_')
+# print skip count dur to ApertureStats timeout
+print(f'aper_size_skip_count = {aper_size_skip_count}')
+
+target_name = SCI_PATH.name.replace('HD ', 'HD_').replace('TOI ', 'TOI-')
 phot_table.write(WRITE_PATH / f'phot_w_err_{target_name}.fits')
 err_table.write(WRITE_PATH / f'err_{target_name}.fits')
 # pixel_table.write(f'pixel_position_{target_name}.fits')

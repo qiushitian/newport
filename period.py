@@ -12,18 +12,19 @@ from astropy.timeseries import LombScargle
 from pathlib import Path
 from newport import *
 
-READ_DIR = Path('tables/list_runs/ri_more_comp/mag_add_608_i')
-WRITE_DIR = Path('tables/list_runs/ri_more_comp/fig')
+READ_DIR = Path('tables/list_runs/1201/mag_2comp')
+WRITE_DIR = Path('tables/list_runs/1201/mag_2comp/period')
+WRITE_DIR.mkdir(parents=True, exist_ok=True)
 
-CUTOFF = Time('2023-03-14')
+CUTOFF = Time('2013-03-14')
 SUFFIX = ''
-MAX_PERIOD = 100
+MIN_PERIOD, MAX_PERIOD = 5, 40
 
 
 if __name__ == '__main__':
     for fn in TARGET_FN:
         # TODO DEV
-        if fn != 'HD_86226':
+        if fn != 'TOI-1201':
             continue
 
         plotted = False
@@ -103,7 +104,7 @@ if __name__ == '__main__':
             plotted = True
 
         if plotted:
-            axs[3].set_xlim(0, MAX_PERIOD)
+            axs[3].set_xlim(MIN_PERIOD, MAX_PERIOD)
 
             fig.supxlabel('Period (day)', y=0.03)
             # fig.suptitle(fn.replace('_', ' '))
