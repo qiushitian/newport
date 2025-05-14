@@ -8,6 +8,7 @@ from datetime import datetime
 
 import photutils.version
 from astropy.time import Time
+from astropy.coordinates import SkyCoord
 import urllib.request
 import xml.etree as etree
 import matplotlib
@@ -36,7 +37,15 @@ TARGET_GAIA_DR3 = {'HD_86226': '5660492297395345408',
                    'TOI-1410': '1958584565350234752',
                    'TOI-1201': '5157183324996790272'}
 
-LITERATURE_MAG = {'HD_86226': {'B': 8.56, 'V': 7.93, 'R': 7.71, 'I': np.nan}}
+TARGET_SKYCOORD = {
+    'TOI-1201': SkyCoord('02h48m59.45s -14d32m14.22s'),
+    'HD_86226': SkyCoord(ra='149.123515d', dec='-24.099186d')
+}
+
+LITERATURE_MAG = {
+    'HD_86226': {'B': 8.56, 'V': 7.93, 'R': 7.71, 'I': np.nan},
+    'TOI-1201': {'B': np.nan, 'V': np.nan, 'R': 12.677, 'I': 10.72},
+}
 
 COMPARISON_STAR = {
     'HD_86226': {
@@ -56,6 +65,12 @@ COMPARISON_STAR = {
             # can add 5660503082056820608, but 5660501673307548800 seems to be bad (increase night-to-night std)
             '5660516447995041664', '5660503082056820608'
         ]
+    },
+    'TOI-1201': {
+        'B': ['5157179060094260736', '5157184007896584960'],
+        'V': ['5157179060094260736', '5157184007896584960'],
+        'R': ['5157179060094260736', '5157184007896584960'],
+        'I': ['5157179060094260736', '5157184007896584960'],
     }
 }
 
@@ -70,9 +85,6 @@ EXCLUDED_COMP_STAR = {
 
 COLORS = {'B': 'C0', 'V': 'C2', 'R': 'C3', 'I': 'maroon'}
 MARKERS = {'B': 'o', 'V': 'x', 'R': 's', 'I': 'D'}
-
-with open("comp-mag.json", "r") as f:
-    comp_star_mags = json.load(f)
 
 
 def get_comp_mags(star, band: str, target: str = None):
@@ -94,15 +106,18 @@ def get_comp_mags(star, band: str, target: str = None):
         star = [star]
         is_scalar = True
 
+    with open("comp-mag.json", "r") as f:
+        comp_star_mags = json.load(f)
+
     mags = {}
     for target, comp_mag_target in comp_star_mags.items():
         mag_list = []
         for i_star in star:
             if i_star in comp_mag_target[band]:
                 mag_list.append(comp_mag_target[band][i_star])
-            else:
-                raise ValueError(f'{i_star} not found in {band} band.')
-        if is_scalar:
+            # else:
+            #     raise ValueError(f'{i_star} not found in {band} band.')
+        if is_scalar and len(mag_list) > 0:
             mags[target] = mag_list[0]
         else:
             mags[target] = mag_list

@@ -12,9 +12,10 @@ from astroquery.utils.tap.core import TapPlus
 from pathlib import Path
 import newport
 
-READ_DIR = Path('tables/list_runs/ri_more_comp/onerel')
-WRITE_DIR = Path('tables/list_runs/ri_more_comp/mag_from_onerel')
-PLOT_DIR = Path('tables/list_runs/ri_more_comp/diagnostic_onerel')
+READ_DIR = Path('tables/list_runs/1201/onerel_on61outof88')
+WRITE_DIR = Path('tables/list_runs/1201/mag_from_onerel')
+PLOT_DIR = Path('tables/list_runs/1201/diagnostic_onerel')
+PLOT_DIR.mkdir(parents=True, exist_ok=True)
 
 N_COL_HEAD = 5  # TODO replace with str.isdigit()
 N_SIGMA = 5
@@ -26,7 +27,7 @@ if __name__ == '__main__':
     PLOT_DIR.mkdir(parents=True, exist_ok=True)
 
     for fn in newport.TARGET_FN:
-        if '86226' not in fn:
+        if '1201' not in fn:
             continue
 
         phot_target = newport.TARGET_GAIA_DR3[fn]  # TODO
@@ -90,7 +91,7 @@ if __name__ == '__main__':
                 bbox_inches='tight'
             )
 
-            # mag_table.write(
-            #     WRITE_DIR / f'mag_from_onerel_masked_field={fn}_target={phot_target}_band={band}.fits',
-            #     overwrite=False
-            # )
+            mag_table.write(
+                WRITE_DIR / f'mag_from_onerel_masked_field={fn}_target={phot_target}_band={band}.fits',
+                overwrite=False
+            )
