@@ -45,6 +45,63 @@ FIRST_OVERSCAN = '20230721'
 
 NANMIN_MAX_TIME = 60  # s
 
+DATES_EXCLUDE_INT = [20230315,
+ 20230316,
+ 20230318,
+ 20230319,
+ 20230323,
+ 20230324,
+ 20230326,
+ 20230328,
+ 20230329,
+ 20230330,
+ 20230402,
+ 20230412,
+ 20230418,
+ 20230419,
+ 20230420,
+ 20230421,
+ 20230425,
+ 20230426,
+ 20230427,
+ 20230501,
+ 20230505,
+ 20230506,
+ 20230508,
+ 20230511,
+ 20230513,
+ 20230514,
+ 20230515,
+ 20230519,
+ 20230522,
+ 20230523,
+ 20230530,
+ 20230601,
+ 20230614,
+ 20230625,
+ 20230927,
+ 20231001,
+ 20231007,
+ 20231011,
+ 20231012,
+ 20231018,
+ 20231021,
+ 20231022,
+ 20231023,
+ 20231024,
+ 20231025,
+ 20231027,
+ 20231101,
+ 20231103,
+ 20231105,
+ 20231111,
+ 20231112,
+ 20231115,
+ 20231116,
+ 20231118,
+ 20231119,
+ 20231120]
+
 
 def error_func(data, gain=1.85):
     # return np.sqrt(data)
@@ -109,6 +166,11 @@ if __name__ == '__main__':
         # date string
         date = date_path.name
 
+        ###
+        if int(date) in DATES_EXCLUDE_INT:
+            print(f'Skipping {date} ###')
+            continue
+
         # determine flat with overscan or not
         flat_date = FLAT_NO_OVERSCAN_DATE if date < FIRST_OVERSCAN else FLAT_WITH_OVERSCAN_DATE
 
@@ -154,7 +216,7 @@ if __name__ == '__main__':
 
         # for file in tqdm(file_list, desc=f'{date_count}\t/ {len(date_list)}\t{date}'):
         for file in file_list:  # no tqdm
-            # print(file)
+            print(file)
 
             # read WCS
             try:
@@ -219,7 +281,7 @@ if __name__ == '__main__':
                     aper_size = aper_size.to(u.pixel).value
                     aper_size = 2 if aper_size < 2 else aper_size
                     aper_size *= APER_SIZE_FACTOR
-                    print(f'aper_size = {aper_size}')  # TODO DEV
+                    # print(f'aper_size = {aper_size}')  # TODO DEV
 
                     # get background
                     sigclip = SigmaClip(sigma=3.0, maxiters=10)

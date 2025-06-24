@@ -12,19 +12,19 @@ from astropy.timeseries import LombScargle
 from pathlib import Path
 from newport import *
 
-READ_DIR = Path('tables/list_runs/1201/mag_2comp')
-WRITE_DIR = Path('tables/list_runs/1201/mag_2comp/period')
+READ_DIR = Path('tables/list_runs/191939/mag_from_counts_new_compstar')
+WRITE_DIR = Path('tables/list_runs/191939/period_new_compstar')
 WRITE_DIR.mkdir(parents=True, exist_ok=True)
 
 CUTOFF = Time('2013-03-14')
 SUFFIX = ''
-MIN_PERIOD, MAX_PERIOD = 5, 40
+MIN_PERIOD, MAX_PERIOD = 10, 1000
 
 
 if __name__ == '__main__':
     for fn in TARGET_FN:
         # TODO DEV
-        if fn != 'TOI-1201':
+        if fn != 'HD_191939':
             continue
 
         plotted = False

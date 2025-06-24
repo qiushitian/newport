@@ -10,9 +10,8 @@ from astropy import table
 from pathlib import Path
 import newport
 
-READ_DIR = Path('tables/list_runs/1201/phot_gaia_run_on61outof88')
-WRITE_DIR = Path('tables/list_runs/1201/onerel_on61outof88')
-WRITE_DIR.mkdir(parents=True, exist_ok=True)
+READ_DIR = Path('tables/list_runs/191939/phot_gaia_run')
+WRITE_DIR = Path('tables/list_runs/191939/onerel')
 
 # Percentile of non-NaN observations required for column to be considered valid
 CRITERION = 0.01  # was 0.7
@@ -22,7 +21,7 @@ if __name__ == '__main__':
     WRITE_DIR.mkdir(parents=True, exist_ok=True)
 
     for fn in newport.TARGET_FN:
-        if '1201' not in fn:
+        if '191939' not in fn:
             continue
 
         phot_table_all_band = table.Table.read(READ_DIR / f'phot_w_err_{fn}.fits')

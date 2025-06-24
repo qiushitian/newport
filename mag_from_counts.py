@@ -15,10 +15,10 @@ from scipy.stats import mode
 import newport
 
 OVERWRITE = False
-# TARGET = 'TOI-1201'
-ROOT_DIR = Path('tables/list_runs/1201')
+TARGET_NUM = '431'
+ROOT_DIR = Path('tables/list_runs/TOI-431')
 READ_DIR = ROOT_DIR / 'phot_list_run'
-WRITE_DIR = ROOT_DIR / 'mag_2comp'
+WRITE_DIR = ROOT_DIR / 'mag_from_counts'
 REQUIRE_ROW_COMPLETE = True
 N_COL_HEAD = 7  # TODO replace with str.isdigit()
 
@@ -91,7 +91,7 @@ if __name__ == '__main__':
             raise RuntimeError('User terminated due to positive overwrite.')
 
     for fn in newport.TARGET_FN:
-        if '1201' not in fn:
+        if TARGET_NUM not in fn:
             continue
 
         phot_table_all_band = table.Table.read(READ_DIR / f'phot_w_err_{fn}.fits')
@@ -107,7 +107,7 @@ if __name__ == '__main__':
                 print(f'{fn}\t{band}\t skipped')
                 continue
 
-            comp_star_list = newport.COMPARISON_STAR[fn][band]
+            comp_star_list = newport.get_comparison_star_list(fn, band)
 
             phot_table = table.hstack(
                 [phot_table[phot_table.colnames[: N_COL_HEAD]], phot_table[comp_star_list + [phot_target]]]
