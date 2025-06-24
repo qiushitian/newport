@@ -24,16 +24,16 @@ from astropy.nddata import CCDData, StdDevUncertainty
 import concurrent.futures
 
 
-FIELD = 'TOI-1201'
+FIELD = 'TOI-561'
 
 APER_SIZE_FACTOR = 1.4
 APSIZE = np.array([14, 50, 90]) * 0.699  # tuple values in PIXEL (converted to arcsec)
 
 BANDS = ['B', 'V', 'R', 'I']
 
-SCI_PATH = Path('/Volumes/emlaf/westep-transfer/mountpoint/space-raw/TOI 1201')
+SCI_PATH = Path('/Volumes/emlaf/westep-transfer/mountpoint/space-raw/TOI 561')
 CALIB_PATH = Path('/Volumes/emlaf/westep-transfer/mastercalib-2025-no_flat')
-WRITE_PATH = Path('tables/list_runs/1201/phot_list_run')
+WRITE_PATH = Path('tables/list_runs/TOI-561/phot_list_run')
 WRITE_PATH.mkdir(parents=True, exist_ok=True)
 
 FLAT_NO_OVERSCAN_DATE, FLAT_WITH_OVERSCAN_DATE = '20230515', '20231102'
@@ -60,7 +60,7 @@ if __name__ == '__main__':
     comp_star_all_bands = set()
     comp_star_all_bands.add(newport.TARGET_GAIA_DR3[FIELD])
     for band in ['B', 'V', 'R', 'I']:
-        for star in newport.COMPARISON_STAR[FIELD][band]:
+        for star in newport.get_comparison_star_list(FIELD, band):
             comp_star_all_bands.add(star)
 
     Gaia.MAIN_GAIA_TABLE = "gaiadr3.gaia_source"
@@ -198,24 +198,28 @@ if __name__ == '__main__':
                     centroids = raw_aperstats.centroid
                     invalid_aper = np.isnan(centroids[:, 0])
 
+                    # skip if all are invalid
+                    if np.all(invalid_aper):
+                        print(f"\nSkipping item {file} because all apertures are invalid.\n")
+                        continue
+
                     # setting real aperture size
                     aper_size = 2
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                        future = executor.submit(get_fwhm_nanmin, raw_aperstats[~invalid_aper])
-                        try:
-                            aper_size = future.result(timeout=NANMIN_MAX_TIME)
-                        except concurrent.futures.TimeoutError:
-                            print(f"Skipping item {file} due to timeout.")
-                            aper_size_skip_count += 1
-                            continue
-                    # aper_size = get_nanmin(raw_aperstats[~invalid_aper].fwhm)  # non-parallel version
+                    # with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    #     future = executor.submit(get_fwhm_nanmin, raw_aperstats[~invalid_aper])
+                    #     try:
+                    #         aper_size = future.result(timeout=NANMIN_MAX_TIME)
+                    #     except concurrent.futures.TimeoutError:
+                    #         print(f"Skipping item {file} due to timeout.")
+                    #         aper_size_skip_count += 1
+                    #         continue
+                    aper_size = get_fwhm_nanmin(raw_aperstats[~invalid_aper])  # non-parallel version
                     if not np.isfinite(aper_size):
                         continue
                     aper_size = aper_size.to(u.pixel).value
                     aper_size = 2 if aper_size < 2 else aper_size
                     aper_size *= APER_SIZE_FACTOR
-                    print(f'\033[91maper_size = {aper_size}\033[0m')  # TODO DEV
-                    # aper_size = raw_aperstats.fwhm[0].to(u.pixel).value * APER_SIZE_FACTOR
+                    print(f'aper_size = {aper_size}')  # TODO DEV
 
                     # get background
                     sigclip = SigmaClip(sigma=3.0, maxiters=10)
@@ -292,6 +296,7 @@ if __name__ == '__main__':
                     # pixel_table.add_row(table_leader + pixel_pos_list)
 
             except Exception as e:
+                print(f'\n\n\033[91mTerminating on: {file}\033[0m\n')
                 raise e  # This line is good for debug because it terminates the whole thing when 1 file fails
 
                 # These two lines below are good for actual running because it doesn't terminate the whole thing;

@@ -44,10 +44,10 @@ def get_fwhm_nanmin(aperture_stats: ApertureStats):
     return np.nanmin(aperture_stats.fwhm)
 
 
-coord = newport.TARGET_SKYCOORD['TOI-1201']
-SCI_PATH = Path('/Volumes/emlaf/westep-transfer/mountpoint/space-raw/TOI 1201')
+coord = newport.TARGET_SKYCOORD['HD_191939']
+SCI_PATH = Path('/Volumes/emlaf/westep-transfer/mountpoint/space-raw/HD 191939')
 CALIB_PATH = Path('/Volumes/emlaf/westep-transfer/mastercalib-2025-no_flat')
-WRITE_PATH = Path('tables/list_runs/1201/phot_gaia_run')
+WRITE_PATH = Path('tables/list_runs/191939/phot_gaia_run')
 WRITE_PATH.mkdir(parents=True, exist_ok=True)
 
 FLAT_NO_OVERSCAN_DATE, FLAT_WITH_OVERSCAN_DATE = '20230515', '20231102'
@@ -122,8 +122,8 @@ date_count = 0
 # aper_size skip count
 aper_size_skip_count = 0
 
-# for date_path in tqdm(date_list):
-for date_path in date_list:  # no tqdm
+for date_path in tqdm(date_list):
+# for date_path in date_list:  # no tqdm
     # date string
     date = date_path.name
 
@@ -177,10 +177,8 @@ for date_path in date_list:  # no tqdm
         continue
 
     file_list = list(date_path.glob("[!._]*.wcs"))
-    for file in tqdm(file_list, desc=f'{date_count}\t/ {len(date_list)}\t{date}'):
-    # for file in file_list:  # no tqdm
-        print(file)
-
+    # for file in tqdm(file_list, desc=f'{date_count}\t/ {len(date_list)}\t{date}'):
+    for file in file_list:  # no tqdm
         # read WCS
         try:
             wcs = aswcs.ini_to_wcs(file.with_suffix('.ini'))
@@ -238,7 +236,7 @@ for date_path in date_list:  # no tqdm
                 aper_size = aper_size.to(u.pixel).value
                 aper_size = 2 if aper_size < 2 else aper_size
                 aper_size *= APER_SIZE_FACTOR
-                print(f'\033[91maper_size = {aper_size}\033[0m')  # TODO DEV
+                print(f'aper_size = {aper_size}')  # TODO DEV
 
                 # get background
                 sigclip = SigmaClip(sigma=3.0, maxiters=10)
@@ -313,6 +311,7 @@ for date_path in date_list:  # no tqdm
                 # pixel_table.add_row(table_leader + pixel_pos_list)
 
         except Exception as e:
+            print(f'\n\n\033[91mTerminating on: {file}\033[0m')
             raise e  # This line is good for debug because it terminates the whole thing when 1 file fails
             # print(str(e))  # These two lines are good for actual running because it doesn't terminal the whole thing
             # print(f'{file} dropped\n')  # Instead, it prints which file(s) fail(s)

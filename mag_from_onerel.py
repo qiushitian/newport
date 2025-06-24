@@ -12,10 +12,10 @@ from astroquery.utils.tap.core import TapPlus
 from pathlib import Path
 import newport
 
-READ_DIR = Path('tables/list_runs/1201/onerel_on61outof88')
-WRITE_DIR = Path('tables/list_runs/1201/mag_from_onerel')
-PLOT_DIR = Path('tables/list_runs/1201/diagnostic_onerel')
-PLOT_DIR.mkdir(parents=True, exist_ok=True)
+ROOT_DIR = Path('tables/list_runs/191939')
+READ_DIR = ROOT_DIR / 'onerel'
+WRITE_DIR = ROOT_DIR / 'mag_from_onerel'
+PLOT_DIR = ROOT_DIR / 'diagnostic_onerel'
 
 N_COL_HEAD = 5  # TODO replace with str.isdigit()
 N_SIGMA = 5
@@ -27,7 +27,7 @@ if __name__ == '__main__':
     PLOT_DIR.mkdir(parents=True, exist_ok=True)
 
     for fn in newport.TARGET_FN:
-        if '1201' not in fn:
+        if '191939' not in fn:
             continue
 
         phot_target = newport.TARGET_GAIA_DR3[fn]  # TODO
@@ -36,7 +36,11 @@ if __name__ == '__main__':
             # if band != 'V':
             #     continue
 
-            onerel_table = table.Table.read(READ_DIR / f'onerel_field={fn}_target={phot_target}_band={band}.fits')
+            try:
+                onerel_table = table.Table.read(READ_DIR / f'onerel_field={fn}_target={phot_target}_band={band}.fits')
+            except FileNotFoundError as e:
+                print(f'{band} band onerel table not found: {str(e)}')
+                continue
 
             mag_dict = {}
             for colname in onerel_table.colnames[N_COL_HEAD:]:

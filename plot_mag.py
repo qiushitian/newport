@@ -21,14 +21,16 @@ MARKERS = {'B': 'o', 'V': '>', 'R': 's', 'I': 'D'}
 PLOT_HST = True
 PLOT_ERR = False
 
-READ_DIR = Path('tables/list_runs/1201/mag_2comp')
-WRITE_FIG_PATH = Path('tables/list_runs/1201/mag_2comp/fig/fig.png')
+TARGET = 'TOI-431'  # 'HD_191939'
+READ_DIR = Path('tables/list_runs/TOI-431/mag_from_counts')  # 191939/mag_from_counts_new_compstar')
+WRITE_FIG_PATH = Path('tables/list_runs/TOI-431/fig/mag.png')  # 191939/fig_new_compstar/mag.png')
 WRITE_FIG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-CUTOFF = Time('2023-09-01')
+CUTOFF = Time('2023-08-15')  # Time('2023-03-06')  Normally, is Time('2023-09-01')
 # CUTOFF_END = Time('2023-08-01')
-CUTOFF_END = Time('2025-02-20')
+CUTOFF_END = Time('2024-04-20') # Time('2024-03-25') for HD_191939.  # was Time('2025-02-20')
 
+YLIM_N_STD = 3
 MIN_EXP_PER_NIGHT = 5
 N_SIG = 1
 SUFFIX = ''
@@ -42,9 +44,10 @@ if __name__ == '__main__':
 
     for fn in newport.TARGET_FN:
         # TODO DEV
-        if fn != 'TOI-1201':
+        if fn != TARGET:
             continue
 
+        wfc3, stis = None, None
         if PLOT_HST:
             wfc3, stis = newport.get_hst(fn, path='xml/HST-17192-visit-status-20250205.xml')
 
@@ -94,6 +97,12 @@ if __name__ == '__main__':
 
             # print overall stats
             clipped_data = stats.sigma_clip(binned_table['super'], sigma=5, maxiters=None, masked=True)
+
+            # skip if no data is valid
+            if hasattr(clipped_data, 'mask') and np.all(clipped_data.mask) or np.all(clipped_data < 0):
+                continue
+
+            # print overall stats - cont'd
             clipped_mean = np.nanmean(clipped_data)
             clipped_std = np.nanstd(clipped_data)
             clipped_min, clipped_max = np.nanmin(clipped_data), np.nanmax(clipped_data)
@@ -160,7 +169,7 @@ if __name__ == '__main__':
             # axs[i].axhline(clipped_mean - raw_std * N_SIG, color=COLORS[band], lw=1, alpha=0.4, ls=':')
             # axs[i].axhline(clipped_mean + raw_std * N_SIG, color=COLORS[band], lw=1, alpha=0.4, ls=':')
             x1, x2 = datetime(2022, 1, 1), datetime(2025, 12, 31)
-            y1, y2 = clipped_mean - raw_std * N_SIG, clipped_mean + raw_std * N_SIG
+            y1, y2 = clipped_mean - clipped_std * N_SIG, clipped_mean + clipped_std * N_SIG  # TODO clipped_std or raw_std?
             rect = patches.Rectangle((x1, y1), x2 - x1, y2 - y1, alpha=0.05, color=COLORS[band], lw=0, zorder=0)
             axs[i].add_patch(rect)
 
@@ -168,7 +177,7 @@ if __name__ == '__main__':
             axs[i].tick_params(axis='x', direction='in', which='both', labelsize=10)  # Ticks inside
             # axs[i].tick_params(axis='x', labelbottom=True, labeltop=False, bottom=True, top=False)  # Labels outside
 
-            axs[i].set_ylim(clipped_mean + clipped_std * 5, clipped_mean - clipped_std * 5)
+            axs[i].set_ylim(clipped_mean + clipped_std * YLIM_N_STD, clipped_mean - clipped_std * YLIM_N_STD)
             axs[i].set_ylabel(f'$m_{band}$')
             axs[i].tick_params(axis='y', direction='in')
             # axs[i].yaxis.set_major_locator(MaxNLocator(format='%.1f'))  # TODO new version can work with this
@@ -177,6 +186,7 @@ if __name__ == '__main__':
             # axs[i].legend(loc='upper right')
             # axs[i].grid(axis='y', linestyle=':', alpha=0.5)
 
+            wfc3_line, stis_line = [], []
             if PLOT_HST:
                 for _ in wfc3:
                     wfc3_line = axs[i].axvline(_.to_datetime(), c='C7', linewidth=1, alpha=0.4)
@@ -193,7 +203,7 @@ if __name__ == '__main__':
 
         # below is out of band loop
         if plotted:
-            axs[-1].set_xlim(datetime(2023, 9, 1), datetime(2024, 2, 20))
+            axs[-1].set_xlim(CUTOFF.to_datetime(), CUTOFF_END.to_datetime())
 
             # Set x-axis ticks for "YYYY-MM, -MM"
             # axs[3].xaxis.set_major_formatter(mdates.DateFormatter('%b\n%Y'))
