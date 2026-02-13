@@ -1,0 +1,11 @@
+{
+    "target": "HD_191939",
+    "target_id": "2248126315275354496",
+    "band": "R",
+    "optimization_metric": "daily",
+    "best_ensemble": [
+        "2248134939569731840",
+        "2248136313959256960"
+    ],
+    "achieved_rms": 0.03571567653621422
+}

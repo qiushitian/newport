@@ -1,0 +1,3 @@
+flat-cube-r.fits, 939.5 MB, was removed from this directory to save space.
+
+-QCT 20250712
