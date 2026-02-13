@@ -159,7 +159,7 @@ if __name__ == '__main__':
             _night_super_target['target'] = phot_table[phot_target]
             _night_super_target['super_err_squared'] = super_err_squared
             _night_super_target['target_err_squared'] = err_table[phot_target] ** 2
-            _aggregated = _night_super_target.group_by('night').groups.aggregate(np.sum)
+            _aggregated = _night_super_target.group_by('night').groups.aggregate(np.sum)  # TODO sum binning is bad
             bin_mags = -2.5 * np.log10(_aggregated['target'] / _aggregated['super']) + super_mag
             bin_mag_errs = np.sqrt(
                 (-2.5 / np.log(10) / _aggregated['target']) ** 2 * _aggregated['target_err_squared']
@@ -169,6 +169,7 @@ if __name__ == '__main__':
             # TODO can get group_by length with
             # group_sizes = gpb.groups.indices[1:] - gpb.groups.indices[:-1]
 
+            # This table is just for calculating daily std
             _super_mag = phot_table[['night']]
             _super_mag['mag'] = unbin_mags * u.mag
             _std_aggregated = _super_mag.group_by('night').groups.aggregate(np.std)
