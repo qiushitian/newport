@@ -4,6 +4,7 @@
 .idea/usage.statistics.xml
 .idea/shelf
 master-calib/flat-cube-r.fits
+latex_view.md
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
