@@ -150,7 +150,7 @@ EXCLUDED_COMP_STAR = {
 }
 
 COLORS = {'B': 'C0', 'V': 'C2', 'R': 'C3', 'I': 'maroon'}
-MARKERS = {'B': 'o', 'V': 'x', 'R': 's', 'I': 'D'}
+MARKERS = {'B': 'o', 'V': 'X', 'R': 's', 'I': 'D'}
 
 
 def get_comparison_star_list(target, band):
@@ -255,7 +255,7 @@ def get_hst(target: str, path=None, url=None, future=False):
     for v in root.iterfind('visit'):
         # visit status screening
         status = v.find('status').text
-        if not future and status != 'Executed':
+        if not future and status != 'Archived':
             continue
 
         # visit target screening
