@@ -149,7 +149,7 @@ EXCLUDED_COMP_STAR = {
     }
 }
 
-COLORS = {'B': 'C0', 'V': 'C2', 'R': 'C3', 'I': 'maroon'}
+COLORS = {'B': 'C0', 'V': 'C2', 'R': 'C3', 'I': 'darkmagenta'}
 MARKERS = {'B': 'o', 'V': 'X', 'R': 's', 'I': 'D'}
 
 
