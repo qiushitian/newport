@@ -3,7 +3,6 @@
 Finding periodicity with lomb scargle, etc.
 
 """
-
 import matplotlib.pyplot as plt
 import astropy.table as table
 import astropy.stats as stats
@@ -11,6 +10,9 @@ import numpy as np
 from astropy.timeseries import LombScargle
 from pathlib import Path
 from newport import *
+
+plt.rcParams["font.family"] = "sans-serif"
+plt.rcParams["font.sans-serif"] = ["Verdana"]
 
 READ_DIR = Path('tables/opt_comp_stars/HD_191939/two')
 WRITE_DIR = Path('tables/opt_comp_stars/HD_191939/two')
@@ -37,7 +39,7 @@ if __name__ == '__main__':
         if fn != 'HD_191939':
             continue
 
-        fig, axs = plt.subplots(nrows=4, figsize=(6, 6.5), sharex=True, sharey=True)
+        fig, axs = plt.subplots(nrows=4, figsize=(5, 6), sharex=True, sharey=True)
         ylim0, ylim1 = 0, 0
 
         for i, band in enumerate(['B', 'V', 'R', 'I']):
@@ -75,11 +77,13 @@ if __name__ == '__main__':
             false_alarm_power = ls.false_alarm_level(FAP / 100)
             axs[i].axhline(
                 false_alarm_power, color='gray', linestyle=':', alpha=0.8,
-                label=f'{FAP}% false alarm level'
+                label=f'{FAP}% false-alarm probability'  # FAP'
             )
 
             # Max rotation period from v sin i
-            label_vsini = rf'Max $P_{{\rm rot}}$ from $v\sin{{i}}={VSINI}$ km/s'
+            label_vsini = r'Max $P_{\rm rot}$'
+            label_vsini = r'Max $P_{\rm rot}$ from $v\,\sin{i}$'
+            label_vsini = r'Max $P_{\rm rot}$ from $v\,\sin{i} = ' + str(VSINI) + r'\,\rm{km/s}$'
             axs[i].axvline(
                 P_MAX_VSINI, color='gray', linestyle='--', alpha=0.8,
                 label=label_vsini
@@ -119,7 +123,7 @@ if __name__ == '__main__':
             # axs[i].tick_params(axis='x', labelbottom=True, labeltop=False, bottom=True, top=False)  # Labels outside
 
             # axs[i].set_ylim()
-            axs[i].set_ylabel(f'{band} band power')
+            # axs[i].set_ylabel(f'{band} band power')
             axs[i].tick_params(axis='y', direction='in')
             # axs[i].yaxis.set_major_locator(MaxNLocator(format='%.1f'))  # TODO new version can work with this
             # axs[i].yaxis.set_major_locator(MultipleLocator(0.2))
@@ -136,6 +140,7 @@ if __name__ == '__main__':
         axs[-1].set_ylim(ylim0, 0.2)
 
         fig.supxlabel('Period (day)', y=0.03)
+        fig.supylabel("Lomb-Scargle power", x=0.04)
         # fig.suptitle(fn.replace('_', ' '))
 
         # Deduplicate legend handles and labels
@@ -152,11 +157,12 @@ if __name__ == '__main__':
                         labels.insert(0, label)
 
         fig.legend(
-            ncol=3, loc='upper center', bbox_to_anchor=(0.54, 1.009),
+            ncol=3, loc='upper center', bbox_to_anchor=(0.5, 1),
+            # fontsize=8,
             handles=handles, labels=labels
         )
         fig.tight_layout()
-        fig.subplots_adjust(top=0.915)
+        fig.subplots_adjust(top=0.89)
 
         plt.savefig(WRITE_DIR / f'periodogram_{fn}-upto{MAX_PERIOD}d_fap{FAP}.pdf')
         # plt.savefig(f'fig/png/{fn}{SUFFIX}.png')

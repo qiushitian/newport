@@ -17,6 +17,9 @@ from datetime import datetime
 from astropy.time import Time
 import newport
 
+plt.rcParams["font.family"] = "sans-serif"
+plt.rcParams["font.sans-serif"] = ["Verdana"]
+
 class RelativePhotometryEngine:
     def __init__(self, input_table, target_id):
         # Standardize table: ensure it's not masked and fills gaps with NaNs
@@ -260,8 +263,6 @@ def plot_target(base_path, target_name, n_std_mid=12, savefig_path=None, bands=[
     """
     N_SIG = 1
 
-    mpl.rc('font', family='serif')
-
     base_path = Path(base_path)
 
     wfc3, stis = newport.get_hst(
@@ -270,7 +271,7 @@ def plot_target(base_path, target_name, n_std_mid=12, savefig_path=None, bands=[
     )
 
     fig, axs = plt.subplots(
-        nrows=len(bands), figsize=(7, 1.5 * len(bands)), sharex=True, sharey=True
+        nrows=len(bands), figsize=(8, 1.7 * len(bands)), sharex=True, sharey=True
     )
     if len(bands) == 1: axs = [axs]
 
@@ -319,13 +320,13 @@ def plot_target(base_path, target_name, n_std_mid=12, savefig_path=None, bands=[
             wfc3_line = ax.axvline(
                 _.to_datetime(),
                 zorder=4, ls='--', c='C1', linewidth=2, alpha=0.6,
-                label='HST WFC3 planetary transit obs.'
+                label='HST/WFC3 planetary transit visits'
             )
         for _ in stis:
             stis_line = ax.axvline(
                 _.to_datetime(),
-                zorder=4, ls='--', c='C4', linewidth=2, alpha=0.6,
-                label='HST STIS host star observation'
+                zorder=4, ls='--', c='C4', linewidth=1, alpha=0.6,
+                label='HST/STIS host star observation'
             )
 
         # mean line and std patch
@@ -363,8 +364,8 @@ def plot_target(base_path, target_name, n_std_mid=12, savefig_path=None, bands=[
     # Set ylim
     axs[-1].set_ylim(1 - n_std_mid * std_mid, 1 + n_std_mid * std_mid)
 
-    fig.supxlabel("Time of observation", y=0.03)
-    fig.supylabel("Relative flux", x=0.035)
+    fig.supxlabel("Time of observation", x=0.53, y=0.03)
+    fig.supylabel("Relative flux", x=0.025, y=0.5)
     
     # # Global Legend matching plot_mag.py style
     # handles, labels = [], []
@@ -424,11 +425,12 @@ def plot_target(base_path, target_name, n_std_mid=12, savefig_path=None, bands=[
                 labels.append(ll)
 
     fig.legend(
-        ncol=3, loc='upper center', bbox_to_anchor=(0.52, 0.98), handles=handles, labels=labels
+        ncol=3, loc='upper center', bbox_to_anchor=(0.5, 1),
+        handles=handles, labels=labels
     )
     
     plt.tight_layout()
-    fig.subplots_adjust(top=0.88) # Make room for dual legends
+    fig.subplots_adjust(top=0.91)  # Make room for dual legends
     
     if savefig_path:
         plt.savefig(savefig_path)
