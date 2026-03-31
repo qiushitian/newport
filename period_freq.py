@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Finding periodicity with lomb scargle, etc.
-
+Lomb-Scargle periodogram in period on frequency scale
 """
 import matplotlib.pyplot as plt
 import astropy.table as table
@@ -22,9 +21,35 @@ WRITE_DIR.mkdir(parents=True, exist_ok=True)
 
 CUTOFF = Time('2013-03-14')
 SUFFIX = ''
-MIN_PERIOD, MAX_PERIOD = 1, 700
-FAP = 2
-YLIM_UPPER = 0.7
+# YLIM_UPPER = 0.7
+ERROR_TYPE = 'error'
+
+# long period
+MIN_PERIOD, MIN_FREQ = 15, -0.001
+XTICKS = np.array([20, 30, 40, 50, 70, 100, 200, 600])  # [2, 3, 4, 5, 7, 9, 20, 300])
+RANGES = np.array([
+    [40, 55],
+    [60, 70],
+    [80, 120],
+    [150, 180],
+    [200, 600]
+])
+FAP = 1
+
+# # 20-ish day period
+# MIN_PERIOD, MIN_FREQ = 17, 1 / 55
+# XTICKS = np.array([20, 25, 30, 50])  # [2, 3, 4, 5, 7, 9, 20, 300])
+# RANGES = np.array([
+#     [26, 30],
+#     [40, 55]
+# ])
+# FAP = 15
+
+# # unconstrained
+# MIN_PERIOD, MIN_FREQ = 1.8, -0.01
+# XTICKS = np.array([2, 3, 4, 5, 7, 9, 20, 300])
+# RANGES = np.array([])
+# FAP = 1
 
 # Stellar parameters for P_rot limit from v sin i
 # HD 191939: R_star ~ 0.94 R_sun, vsini ~ 1 km/s (upper limit)
@@ -48,39 +73,55 @@ if __name__ == '__main__':
         for i, band in enumerate(['B', 'V', 'R', 'I']):
             try:
                 binned_table = table.Table.read(READ_DIR / f'bin_results_{band}.fits')
-                unbinned_table = table.Table.read(READ_DIR / f'unbin_results_{band}.fits')
             except FileNotFoundError as e:
                 print(str(e))
                 continue
 
             # cutoff
             time_binned = Time(binned_table['jd'], format='jd')
-            time_unbinned = Time(unbinned_table['jd'], format='jd')
 
             after_binned = time_binned > CUTOFF
-            after_unbinned = time_unbinned > CUTOFF
 
             time_binned = time_binned[after_binned]
-            time_unbinned = time_unbinned[after_unbinned]
 
             data_binned = binned_table['flux'].data[after_binned]
-            data_unbinned = unbinned_table['flux'].data[after_unbinned]
+
+            err_binned = binned_table[ERROR_TYPE].data[after_binned]
             # end of cutoff
 
             not_nan_mask = ~np.isnan(data_binned)
-            ls = LombScargle(time_binned[not_nan_mask], data_binned[not_nan_mask])
+            ls = LombScargle(time_binned[not_nan_mask], data_binned[not_nan_mask], err_binned[not_nan_mask])
             frequency, power = ls.autopower()
             # print(frequency, power)
 
+            mask = (frequency >= MIN_FREQ / u.d) & (frequency <= 1 / MIN_PERIOD / u.d)
             axs[i].plot(
-                1 / frequency, power, c=COLORS[band], label=f'{band} band'
+                frequency[mask], power[mask], c=COLORS[band], label=f'{band} band'
             )
 
-            m = (frequency > 1 / (200 * u.d)) & (frequency < 1 / (80 * u.d))
-            print(band, 1 / frequency[m][power[m].argmax()])
+            # --- Peer into specific ranges and plot maxima ---
+            for r in RANGES:
+                f_min, f_max = 1 / (r[1] * u.d), 1 / (r[0] * u.d)
+                m_range = (frequency >= f_min) & (frequency <= f_max)
+                if np.any(m_range):
+                    idx_peak = np.argmax(power[m_range])
+                    f_peak = frequency[m_range][idx_peak]
+                    
+                    # Vertical indicator
+                    axs[i].axvline(
+                        f_peak.value, color='gray', linestyle='--', 
+                        alpha=0.4, linewidth=0.8, zorder=0
+                    )
+                    # Period label near top
+                    axs[i].text(
+                        f_peak.value, 0.95, f'{1/f_peak.value:.1f}d', 
+                        transform=axs[i].get_xaxis_transform(),
+                        rotation=90, fontsize=7, ha='right', va='top', color='0.3'
+                    )
 
             # false alarm
             false_alarm_power = ls.false_alarm_level(FAP / 100)
+            print(f'{band}-band power={false_alarm_power} @ {FAP}% FAP')
             axs[i].axhline(
                 false_alarm_power, color='gray', linestyle=':', alpha=0.8,
                 label=f'{FAP}% false-alarm probability'  # FAP'
@@ -91,7 +132,7 @@ if __name__ == '__main__':
             label_vsini = r'Max $P_{\rm rot}$ from $v\,\sin{i}$'
             label_vsini = r'Max $P_{\rm rot}$ from $v\,\sin{i} = ' + str(VSINI) + r'\,\rm{km/s}$'
             axs[i].axvline(
-                P_MAX_VSINI, color='gray', linestyle='--', alpha=0.8,
+                1 / P_MAX_VSINI, color='gray', linestyle='--', alpha=0.8,
                 label=label_vsini
             )
 
@@ -137,15 +178,18 @@ if __name__ == '__main__':
             # axs[i].yaxis.set_major_locator(MultipleLocator(0.2))
             # axs[i].yaxis.set_major_formatter(FuncFormatter(lambda x, _: f'{x:.1f}'))
 
-            _yl = axs[i].get_ylim()
-            ylim0 = min(ylim0, _yl[0])
-            ylim1 = max(ylim1, _yl[1])
-            # print(ylim0, ylim1)
+            # _yl = axs[i].get_ylim()
+            # ylim0 = min(ylim0, _yl[0])
+            # ylim1 = max(ylim1, _yl[1])
+            # # print(ylim0, ylim1)
 
             # axs[i].grid(axis='y', linestyle=':', alpha=0.5)
 
-        axs[-1].set_xlim(MIN_PERIOD, MAX_PERIOD)
-        axs[-1].set_ylim(ylim0, YLIM_UPPER)
+        axs[-1].set_xticks(1 / XTICKS, XTICKS)
+        # _xl0, _xl1 = axs[-1].get_xlim()
+        # axs[-1].set_xlim(_xl1, _xl0)
+        axs[-1].set_xlim(1 / MIN_PERIOD, MIN_FREQ)
+        # axs[-1].set_ylim(ylim0, YLIM_UPPER)
 
         fig.supxlabel('Period (day)', y=0.03)
         fig.supylabel("Lomb-Scargle power", x=0.04)
@@ -172,7 +216,9 @@ if __name__ == '__main__':
         fig.tight_layout()
         fig.subplots_adjust(top=0.89)
 
-        plt.savefig(WRITE_DIR / f'periodogram_{fn}-upto{MAX_PERIOD}d_fap{FAP}.pdf')
+        plt.savefig(WRITE_DIR / 
+            f'periodogram_freq_p{MIN_PERIOD}_fap{FAP}_{ERROR_TYPE}.pdf'
+        )
         # plt.savefig(f'fig/png/{fn}{SUFFIX}.png')
         plt.show()
 

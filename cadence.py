@@ -3,13 +3,15 @@ import numpy as np
 from astropy import table
 from pathlib import Path
 from astropy.time import Time
+import pytz
+from datetime import datetime, timedelta
 from newport import *
 import matplotlib.pyplot as plt
+from target_phot import OUTPUT_DIR
 
-READ_DIR = Path('tables/opt_comp_stars/HD_191939/two')
 
 if __name__ == '__main__':
-    print(f"Cadence analysis for {READ_DIR}\n")
+    print(f"Cadence analysis for {OUTPUT_DIR}\n")
     print(f"{'Band':<5} {'Median (d)':<12} {'Mean (d)':<12} {'Min (d)':<10} {'Max (d)':<10} {'N_obs':<6}")
     print("-" * 65)
 
@@ -17,11 +19,28 @@ if __name__ == '__main__':
 
     for band in ['B', 'V', 'R', 'I']:
         try:
-            binned_table = table.Table.read(READ_DIR / f'bin_results_{band}.fits')
+            binned_table = table.Table.read(OUTPUT_DIR / f'bin_results_{band}.fits')
         except FileNotFoundError:
             continue
             
-        jd = np.sort(binned_table['jd'].data)
+        # Round JD to nearest 00:00 (12am) Eastern Time
+        et = pytz.timezone('US/Eastern')
+        
+        jd_rounded = []
+        for j in binned_table['jd'].data:
+            t_utc = Time(j, format='jd')
+            dt_et = t_utc.to_datetime(timezone=et)
+            
+            # Round to nearest midnight
+            if dt_et.hour >= 12:
+                dt_rounded = datetime(dt_et.year, dt_et.month, dt_et.day) + timedelta(days=1)
+            else:
+                dt_rounded = datetime(dt_et.year, dt_et.month, dt_et.day)
+            
+            # Convert back to JD (handles DST correctly)
+            jd_rounded.append(Time(et.localize(dt_rounded)).jd)
+            
+        jd = np.sort(np.unique(jd_rounded))
         diff = np.diff(jd)
         
         if len(diff) == 0:
@@ -52,7 +71,7 @@ if __name__ == '__main__':
         plt.xlabel('Interval between observations (days)')
         plt.tight_layout()
         
-        pdf_path = READ_DIR / 'cadence_histogram.pdf'
+        pdf_path = OUTPUT_DIR / 'cadence_histogram.pdf'
         plt.savefig(pdf_path)
         print(f"\nPlot saved to {pdf_path}")
         plt.show()
