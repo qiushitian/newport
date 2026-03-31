@@ -16,6 +16,8 @@ from matplotlib import patches, ticker, dates as mdates
 from datetime import datetime
 from astropy.time import Time
 import newport
+from astropy.timeseries import LombScargle
+import astropy.units as u
 
 plt.rcParams["font.family"] = "sans-serif"
 plt.rcParams["font.sans-serif"] = ["Verdana"]
@@ -271,9 +273,15 @@ def plot_target(base_path, target_name, n_std_mid=12, savefig_path=None, bands=[
     )
 
     fig, axs = plt.subplots(
-        nrows=len(bands), figsize=(8, 1.7 * len(bands)), sharex=True, sharey=True
+        nrows=len(bands), figsize=(8, 1.7 * len(bands)),
+        sharex=True, sharey=True
     )
     if len(bands) == 1: axs = [axs]
+
+    # --- Aesthetic Configuration ---
+    use_panel_titles = True  # Toggle between panel titles and per-band legends
+    color_wfc3 = 'peru' # Previous: C5
+    color_stis = 'olive'   # Previous: C1
 
     std_mid = 0
 
@@ -303,31 +311,47 @@ def plot_target(base_path, target_name, n_std_mid=12, savefig_path=None, bands=[
         t_bin = Time(bin_table['jd'], format='jd').to_datetime()
         
         # Unbinned points in background
-        ax.errorbar(
+        unbin_artist = ax.errorbar(
             t_unbin, unbin_table['flux'], # yerr=unbin_table['error'],
             fmt='o', color='silver',
-            ms=4, alpha=0.3, markeredgewidth=0, ecolor='lightgrey', elinewidth=1
+            ms=5.5, alpha=0.2, markeredgewidth=0, ecolor='lightgrey', elinewidth=1,
+            label='Unbinned'
         )
         
         # Binned points with error bars
-        ax.errorbar(t_bin, bin_table['flux'], yerr=bin_table['intraday_std'], 
-                    fmt=newport.MARKERS[band], color=newport.COLORS[band],
-                    alpha=0.7, markeredgewidth=0, 
-                    ms=7, capsize=6, label=f'{band} band')
+        binned_artist = ax.errorbar(
+            t_bin, bin_table['flux'], yerr=bin_table['intraday_std'],
+            fmt=newport.MARKERS[band], color=newport.COLORS[band],
+            alpha=0.7, markeredgewidth=0,
+            ms=7, capsize=6, label=f'{band} band'
+        )
 
         # Plot HST
         for _ in wfc3:
             wfc3_line = ax.axvline(
                 _.to_datetime(),
-                zorder=4, ls='--', c='C1', linewidth=2, alpha=0.6,
+                zorder=4, ls='--', c=color_wfc3, linewidth=1.8, alpha=0.7,
                 label='HST/WFC3 planetary transit visits'
             )
         for _ in stis:
             stis_line = ax.axvline(
                 _.to_datetime(),
-                zorder=4, ls='--', c='C4', linewidth=1, alpha=0.6,
+                zorder=4, ls=':', c=color_stis, linewidth=1.8, alpha=0.8,
                 label='HST/STIS host star observation'
             )
+        
+        # Panel Title (Color matched)
+        if use_panel_titles:
+            ax.text(
+                0.18, 0.92, f"{band} band", transform=ax.transAxes, 
+                fontweight='bold', va='top', color=newport.COLORS[band],
+                fontsize=11
+            )
+            # ax.legend(
+            #     handles=[binned_artist, unbin_artist],
+            #     labels=[binned_artist.get_label(), unbin_artist.get_label()],
+            #     loc='upper left', bbox_to_anchor=(0.18, 0.95), ncol=1
+            # )
 
         # mean line and std patch
         x1, x2 = ax.get_xlim()
@@ -344,12 +368,14 @@ def plot_target(base_path, target_name, n_std_mid=12, savefig_path=None, bands=[
         _std_mid = np.nanstd(flux[mid_mask])
         std_mid = max(std_mid, _std_mid)
         
-        ax.grid(True, alpha=0.3)
+        ax.grid(True, 'major', alpha=0.3)
+        ax.grid(True, 'minor', alpha=0.1)
         ax.tick_params(axis='x', direction='in', which='both', labelsize=10)  # Ticks inside
         ax.tick_params(axis='y', direction='in')
 
         # Limit x-axis tick density and snap to months
         ax.xaxis.set_major_locator(mdates.AutoDateLocator(maxticks=8))
+        ax.xaxis.set_minor_locator(mdates.MonthLocator())
         # ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
         
         # # Metadata labels
@@ -417,6 +443,121 @@ def plot_target(base_path, target_name, n_std_mid=12, savefig_path=None, bands=[
     #     fig.add_artist(leg2)
 
     handles, labels = [], []
+    # for ax in axs:
+    #     h, l = ax.get_legend_handles_labels()
+    #     for hh, ll in zip(h, l):
+    #         # If using panel titles, exclude band labels from the legend
+    #         label_condition = (ll not in labels)
+    #         if use_panel_titles:
+    #             label_condition = (ll not in labels and 'band' not in ll)
+            
+    #         if label_condition:
+    #             handles.append(hh)
+    #             labels.append(ll)
+    handles = [wfc3_line, stis_line]
+    labels = [wfc3_line.get_label(), stis_line.get_label()]
+
+    fig.legend(
+        ncol=2 if use_panel_titles else 3,
+        loc='upper center', bbox_to_anchor=(0.5, 1),
+        handles=handles, labels=labels
+    )
+    
+    plt.tight_layout()
+    fig.subplots_adjust(top=0.94)  # Make room for dual legends
+    
+    if savefig_path:
+        plt.savefig(savefig_path, bbox_inches='tight') # TODO verify if bbox tight is needed
+        print(f"Target plot saved to {savefig_path}")
+    plt.show()
+    plt.close()
+
+
+def plot_fold(base_path, target_name, period, t0=0, n_std_mid=10, savefig_path=None, bands=['B', 'V', 'R', 'I'], show=True):
+    """
+    Generates a folded multi-band light curve plot.
+    """
+    N_SIG = 1
+    base_path = Path(base_path)
+
+    wfc3, stis = newport.get_hst(
+        target_name,
+        path='xml/HST-17192-visit-status_20260216.xml'
+    )
+
+    fig, axs = plt.subplots(
+        nrows=len(bands), figsize=(8, 1.7 * len(bands)), sharex=True, sharey=True
+    )
+    if len(bands) == 1:
+        axs = [axs]
+
+    std_mid = 0
+
+    for i, band in enumerate(bands):
+        ax = axs[i]
+        bin_path = base_path.parent / f"bin_{base_path.stem}_{band}.fits"
+        unbin_path = base_path.parent / f"unbin_{base_path.stem}_{band}.fits"
+        
+        try:
+            bin_table = table.Table.read(bin_path)
+            unbin_table = table.Table.read(unbin_path)
+        except FileNotFoundError:
+            print(f"Skipping {band} band: files not found.")
+            continue
+
+        # rms_day = bin_table.meta.get('RMSDAY', 0)
+        # print(f'{band}\t{len(bin_table)}\t{len(unbin_table)}')
+            
+        # Day calculation (folded)
+        days_unbin = (unbin_table['jd'] - t0) % period
+        days_bin = (bin_table['jd'] - t0) % period
+        
+        # Unbinned points in background
+        ax.errorbar(
+            days_unbin, unbin_table['flux'],
+            fmt='o', color='silver',
+            ms=4, alpha=0.3, markeredgewidth=0
+        )
+        
+        # Binned points with error bars
+        ax.errorbar(days_bin, bin_table['flux'], yerr=bin_table['intraday_std'], 
+                    fmt=newport.MARKERS[band], color=newport.COLORS[band],
+                    alpha=0.7, markeredgewidth=0, 
+                    ms=7, capsize=6, label=f'{band} band')
+
+        # Fold HST visits
+        for visit in wfc3:
+            phase_days = ((visit.jd - t0) % period)
+            ax.axvline(phase_days, zorder=4, ls='--', c='C1', linewidth=2, alpha=0.6,
+                       label='HST/WFC3 planetary transit visits')
+        for visit in stis:
+            phase_days = ((visit.jd - t0) % period)
+            ax.axvline(phase_days, zorder=4, ls='--', c='C4', linewidth=1, alpha=0.6,
+                       label='HST/STIS host star observation')
+
+        # # Shaded sigma region
+        # y1, y2 = 1 - rms_day * N_SIG, 1 + rms_day * N_SIG
+        # rect = patches.Rectangle((0, y1), period, y2 - y1, alpha=0.1, color=newport.COLORS[band], lw=0, zorder=0)
+        # ax.add_patch(rect)
+
+        # Calculate ylim
+        flux = bin_table['flux']
+        p25, p75 = np.nanpercentile(flux, [25, 75])
+        mid_mask = (flux >= p25) & (flux <= p75)
+        _std_mid = np.nanstd(flux[mid_mask]) if np.any(mid_mask) else np.nanstd(flux)
+        std_mid = max(std_mid, _std_mid)
+        
+        ax.grid(True, alpha=0.2)
+        ax.tick_params(axis='both', direction='in', which='both')
+
+    axs[-1].set_ylim(1 - n_std_mid * std_mid, 1 + n_std_mid * std_mid)
+    # axs[-1].set_xlim(0, period)
+
+    fig.supxlabel(f"Days from phase zero ($P = {period:.3f}$ d)", x=0.53, y=0.03)
+    fig.supylabel("Relative flux", x=0.025, y=0.5)
+    
+    # Global Legend logic (copied from plot_target)
+    handles, labels = [], []
     for ax in axs:
         h, l = ax.get_legend_handles_labels()
         for hh, ll in zip(h, l):
@@ -430,13 +571,13 @@ def plot_target(base_path, target_name, n_std_mid=12, savefig_path=None, bands=[
     )
     
     plt.tight_layout()
-    fig.subplots_adjust(top=0.91)  # Make room for dual legends
-    
+    fig.subplots_adjust(top=0.91)
+
     if savefig_path:
-        plt.savefig(savefig_path)
-        print(f"Figure saved to {savefig_path}")
-    
-    plt.show()
+        plt.savefig(savefig_path, bbox_inches='tight')
+        print(f"Folded plot saved to {savefig_path}")
+    if show:
+        plt.show()
     plt.close()
             
 
@@ -737,6 +878,171 @@ def plot_comp(base_dir, all_comps, used_comps, target_name, savefig_path=None, n
     if savefig_path:
         plt.savefig(savefig_path, dpi=200)
         print(f"Grid diagnostic saved: {savefig_path}")
+    
+    plt.show()
+    plt.close(fig)
+
+
+def plot_comp_periodogram(base_dir, all_comps, used_comps, target_name, savefig_path=None, 
+                          bands=['B', 'V', 'R', 'I'], 
+                          min_period=None, min_freq=None, 
+                          xticks=np.array([20, 25, 30, 50]), 
+                          ranges=None, fap=15, cutoff=Time('2013-03-14')):
+    """
+    Plots the Lomb-Scargle periodograms for all comparison stars in a grid.
+    Rows = Bands, Columns = Stars.
+    """
+    if ranges is None:
+        ranges = np.array([[26, 30], [40, 55]])
+
+    base_dir = Path(base_dir)
+    n_bands = len(bands)
+    n_stars = len(all_comps)
+    
+    fig, axs = plt.subplots(nrows=n_bands, ncols=n_stars, 
+                             figsize=(3.5 * n_stars - 2, 2.0 * n_bands), 
+                             sharex='col', sharey='row',
+                             squeeze=False)
+
+    for col_idx, comp_id in enumerate(all_comps):
+        for row_idx, band in enumerate(bands):
+            ax = axs[row_idx, col_idx]
+            prefix = f"comp_{comp_id}_{band}"
+            bin_path = base_dir / f"bin_{prefix}.fits"
+            
+            try:
+                bin_table = table.Table.read(bin_path)
+            except FileNotFoundError:
+                ax.text(0.5, 0.5, "File Not Found", transform=ax.transAxes, ha='center', color='red', fontsize=8)
+                continue
+
+            # Cutoff and data prep
+            time_binned = Time(bin_table['jd'], format='jd')
+            mask = time_binned > cutoff
+            t = time_binned[mask]
+            y = bin_table['flux'].data[mask]
+            
+            not_nan = ~np.isnan(y)
+            if not np.any(not_nan) or len(t[not_nan]) < 5:
+                ax.text(0.5, 0.5, "Insufficient Data", transform=ax.transAxes, ha='center', alpha=0.5, fontsize=8)
+                continue
+
+            ls = LombScargle(t[not_nan], y[not_nan])
+            frequency, power = ls.autopower()
+            
+            # Sub-mask for plotting as in period_freq.py
+            if min_period is not None and min_freq is not None:
+                plot_mask = (frequency >= min_freq / u.d) & (frequency <= 1 / (min_period * u.d))
+            else:
+                plot_mask = np.ones_like(frequency, dtype=bool)
+            
+            color = newport.COLORS.get(band, 'black')
+            ax.plot(frequency[plot_mask], power[plot_mask], c=color, lw=1)
+            
+            # Maxima search
+            for r in ranges:
+                f_min, f_max = 1 / (r[1] * u.d), 1 / (r[0] * u.d)
+                m_range = (frequency >= f_min) & (frequency <= f_max)
+                if np.any(m_range):
+                    idx_peak = np.argmax(power[m_range])
+                    f_peak = frequency[m_range][idx_peak]
+                    
+                    ax.axvline(f_peak.value, color='gray', linestyle='--', alpha=0.3, linewidth=0.7, zorder=0)
+                    ax.text(f_peak.value, 0.95, f'{1/f_peak.value:.1f}d', 
+                            transform=ax.get_xaxis_transform(),
+                            rotation=90, fontsize=6, ha='right', va='top', color='0.4')
+
+            # False alarm level
+            fa_p = ls.false_alarm_level(fap / 100)
+            print(f'{str(comp_id)[-3:]} {band} power={fa_p} @ {fap}% FAP')
+            ax.axhline(fa_p, color='gray', linestyle=':', alpha=0.6, linewidth=0.8)
+
+            if comp_id not in used_comps:
+                ax.set_facecolor('#f0f0f0')
+
+            ax.tick_params(axis='both', direction='in', labelsize=8)
+            
+            if row_idx == 0:
+                ax.set_title(f"Gaia DR3 {comp_id}", fontsize=9)
+            
+            if row_idx == n_bands - 1:
+                ax.set_xticks(1 / xticks)
+                ax.set_xticklabels(xticks)
+                if min_period is not None and min_freq is not None:
+                    ax.set_xlim(1 / min_period, min_freq)
+                else:
+                    ax.invert_xaxis()
+
+    fig.supxlabel("Period [days]", y=0.04)
+    fig.supylabel("Lomb-Scargle power", x=0.01)
+    
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    
+    if savefig_path:
+        plt.savefig(savefig_path, dpi=200)
+        print(f"Comparison periodogram saved: {savefig_path}")
+    
+    plt.show()
+    plt.close(fig)
+
+
+def plot_flux_matrix(phot_table, star_ids, band='V', metric='std', savefig_path=None):
+    """
+    Plots an N x N heatmap of flux ratio stability between star pairs.
+    """
+    df = phot_table[phot_table['band'] == band]
+    if len(df) == 0:
+        print(f"No data for band {band}")
+        return
+
+    n = len(star_ids)
+    matrix = np.zeros((n, n))
+    
+    for i in range(n):
+        for j in range(n):
+            if i == j:
+                matrix[i, j] = 0
+                continue
+            
+            # Ratio of star i to star j
+            f_i = df[star_ids[i]].data.copy()
+            f_j = df[star_ids[j]].data.copy()
+            
+            mask = np.isfinite(f_i) & (f_i > 0) & np.isfinite(f_j) & (f_j > 0)
+            if not np.any(mask):
+                matrix[i, j] = np.nan
+                continue
+                
+            ratio = f_i[mask] / f_j[mask]
+            ratio /= np.nanmean(ratio)
+            
+            if metric == 'std':
+                matrix[i, j] = np.nanstd(ratio)
+            elif metric == 'amplitude':
+                q1, q3 = np.nanpercentile(ratio, [25, 75])
+                matrix[i, j] = q3 - q1
+    
+    fig, ax = plt.subplots(figsize=(n * 0.7 + 2, n * 0.7 + 1))
+    im = ax.imshow(matrix, cmap='viridis_r')
+    
+    ax.set_xticks(np.arange(n))
+    ax.set_yticks(np.arange(n))
+    ax.set_xticklabels(star_ids, rotation=45, ha='right', fontsize=8)
+    ax.set_yticklabels(star_ids, fontsize=8)
+    
+    # Annotate values
+    for i in range(n):
+        for j in range(n):
+            if not np.isnan(matrix[i, j]):
+                ax.text(j, i, f"{matrix[i, j]:.4f}",
+                        ha="center", va="center", color="w", fontsize=6, alpha=0.8)
+    
+    ax.set_title(f"Star Flux Matrix - {band} band\nMetric: {metric.upper()}", fontsize=11, pad=10)
+    fig.colorbar(im, label=f"Relative {metric.upper()}", fraction=0.046, pad=0.04)
+    
+    plt.tight_layout()
+    if savefig_path:
+        plt.savefig(savefig_path, dpi=200)
     
     plt.show()
     plt.close(fig)
