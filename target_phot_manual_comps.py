@@ -3,52 +3,33 @@ from astropy import table
 import numpy as np
 import json
 from optimize_rel_phot import *
-from newport import TARGET_GAIA_DR3, get_excluded_comp, get_input_path
+from newport import TARGET_GAIA_DR3, get_input_path, get_excluded_comp
 
 
-TARGET = "V494_Cep"
+TARGET = "TOI-1759"
 TARGET_ID = TARGET_GAIA_DR3[TARGET]
 
-OUTPUT_DIR = Path(f"tables/opt_comp_stars/{TARGET}/excl376")
-if __name__ == "__main__":
-    print(f'Newport photometry for target {TARGET} to {OUTPUT_DIR}')
+# 1759 only
+USED_COMPS = [
+    '2216414888108779520', '2216416743536122752', '2216419698472018560',
+    '2216431445197473152', '2216432475989623040', '2216433953458370176',
+    '2216441031566760960', '2216445876287582848'
+]
+
+OUTPUT_DIR = Path(
+    f"tables/opt_comp_stars/{TARGET}/{'_'.join(c[-3:] for c in USED_COMPS)}"
+)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
+OVERWRITE = False
+
 
 if __name__ == "__main__":
-    COMP_DIAG_DIR = OUTPUT_DIR / "comp_diag"
-    CRIT = 0.86
-
-    OVERWRITE = False
-
-    # USED_COMPS = [
-    #     # '2248124184971495936',
-    #     '2248135317526853120',
-    #     '2248136313959256960'
-    # ]
-
     full_table = table.Table.read(get_input_path(TARGET))
 
-    # ### BLOCK: Print out comparison stars for comp diag ###
-    # COMP_DIAG_DIR.mkdir(parents=True, exist_ok=True)
-
-    # comp_set = set()
-    # for band in ['B', 'V', 'R', 'I']:
-    #     json_path = OUTPUT_DIR / f"opt_ensemble_{band}.json"
-    #     comp_set.update(load_optimized_json(json_path))
-
-    # for cid in comp_set:
-    #     print(f"Gaia DR3 {cid}:")
-    #     for band in ['B', 'V', 'R', 'I']:
-    #         t = table.Table.read(COMP_DIAG_DIR / f"bin_diag_{cid}_{band}.fits")
-    #         e = t.meta['COMPIDS']
-    #         print(f"  {band}: {e}")
-    # ### END BLOCK ###
-
-    ### BLOCK: Run ensembles ###
     read_saved_table_base = OUTPUT_DIR / "results"
 
-    bands = ['B', 'V', 'R', 'I']  # np.unique(full_table['band'])
+    bands = np.unique(full_table['band'])  # Only 766452769615859712 has no V band data
     all_binned = []
     all_unbinned = []
 
@@ -56,18 +37,7 @@ if __name__ == "__main__":
         print(f"\n--- Band {band} ---")
         band_table = full_table[full_table['band'] == band]
 
-        # Only 766452769615859712 has no V band data
-        if len(band_table) == 0:
-            print(f"No data for band {band}. Skipping.")
-            continue
-        
-        # 1. Optimize
-        best_ensemble, all_comps = get_comps(
-            band_table, TARGET_ID, criterion=CRIT,
-            exclude_ids=get_excluded_comp(TARGET, band)
-        )
-
-        # best_ensemble = USED_COMPS  # Only used if not optimizing
+        best_ensemble = USED_COMPS
         
         # 2. Save results (includes binned/unbinned + metadata)
         engine = RelativePhotometryEngine(band_table, TARGET_ID)
@@ -88,7 +58,6 @@ if __name__ == "__main__":
             "target_id": TARGET_ID,
             "band": band,
             "best_ensemble": best_ensemble,
-            "all_comps": all_comps,
         }
         output_json = OUTPUT_DIR / f"opt_ensemble_{band}.json"
         with open(output_json, "w") as f:
@@ -105,6 +74,5 @@ if __name__ == "__main__":
     # 5. Multi-band plot from saved tables
     plot_target(
         read_saved_table_base, TARGET, # n_std_mid=12,
-        savefig_path=OUTPUT_DIR / f"monitoring_{TARGET}.pdf"
+        savefig_path=OUTPUT_DIR / "monitoring.pdf"
     )
-    ### END BLOCK ###

@@ -1,3 +1,7 @@
+"""
+Temporary script. Runs optimization with varying criteria to see how number of nights
+changes with the criterion.
+"""
 from pathlib import Path
 from astropy import table
 import numpy as np

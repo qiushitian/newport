@@ -14,6 +14,7 @@ import urllib.request
 import xml.etree as etree
 import matplotlib
 import json
+from pathlib import Path
 
 print(f'Numpy {np.version.version}, Astropy {astropy.version.version}, photutils {photutils.version.version}, '
       f'ccdproc {ccdproc.version.version}, Matplotlib {matplotlib.__version__}')
@@ -29,14 +30,17 @@ TARGET_FN = [
     'TOI-1410',
 ]
 
-TARGET_GAIA_DR3 = {'HD_86226': '5660492297395345408',
-                   'HD_191939': '2248126315275354496',
-                   'TOI-1759': '2216420110788943744',
-                   'TOI-178': '2318295979126499200',
-                   'TOI-431': '2908664557091200768',
-                   'TOI-561': '3850421005290172416',
-                   'TOI-1410': '1958584565350234752',
-                   'TOI-1201': '5157183324996790272'}  # 5157183324996789760
+TARGET_GAIA_DR3 = {
+    'HD_86226': '5660492297395345408',
+    'HD_191939': '2248126315275354496',
+    'TOI-1759': '2216420110788943744',
+    'TOI-178': '2318295979126499200',
+    'TOI-431': '2908664557091200768',
+    'TOI-561': '3850421005290172416',
+    'TOI-1410': '1958584565350234752',
+    'TOI-1201': '5157183324996790272',  # 5157183324996789760
+    'V494_Cep': '2216368566879908608'
+}
 
 TARGET_SKYCOORD = {
     'TOI-1201': SkyCoord('02h48m59.45s -14d32m14.22s'),
@@ -138,28 +142,99 @@ COMPARISON_STAR = {
               '2248136313959256960', '2248136825057166720'],  # , '2248137653989048320'
         'R': ['2248111678026733440', '2248136825057166720']
     },
+    'V494_Cep': {  # Not updated yet
+        'B': [
+            '2216367437308515072', '2216392038881729408', '2216393069673870592',  # '2216391695286437888',
+            '2216414888108779520', '2216416743536122752', '2216417808686469376',  # '2216425161670352128',
+            '2216431445197473152', '2216432475989623040', '2216440176876564736', '2216441031566760960',
+            '2216445876287582848'
+        ],
+        'V': [
+            '2216367437308515072', '2216392038881729408', '2216393069673870592',
+            '2216414888108779520', '2216416743536122752', '2216417808686469376',
+            # '2216419698472018560', '2216425161670352128',
+            '2216431445197473152', '2216432475989623040', '2216440176876564736', '2216441031566760960',
+            '2216445876287582848'
+        ]
+    },
 }
 
 EXCLUDED_COMP_STAR = {
     'HD_86226': {
-        'B': ['5660517654882236800', '5660474529114240512', '5660494320324102272', '5660496214405409152'],
-        'V': ['5660517654882236800', '5660474529114240512', '5660494320324102272', '5660496214405409152'],
-        'R': ['5660501673307548800', '5660503082056820608'],  # can keep 608
-        'I': ['5660501673307548800', '5660503082056820608']  # can keep 800 and 608
-    }
+        'B': {'5660517654882236800', '5660474529114240512', '5660494320324102272', '5660496214405409152'},
+        'V': {'5660517654882236800', '5660474529114240512', '5660494320324102272', '5660496214405409152'},
+        'R': {'5660501673307548800', '5660503082056820608'},  # can keep 608
+        'I': {'5660501673307548800', '5660503082056820608'}  # can keep 800 and 608
+    },
+    'TOI-1759': {  # 2216368566879908608 is Vxxx Cep, a LP variable
+        'all': {'2216368566879908608', '2216417808686469376'}
+    },
+    'V494_Cep': {
+        'all': {'2216417808686469376'}
+    },
+    'TOI-1410': {
+        'all': {
+            '1958589341354038656', '1958586626934524160',
+            '1958562059721796352', '1958588413640899712'
+        }
+    },
+}
+
+INPUT_PATHS = {
+    'HD_191939': Path(f'tables/opt_comp_stars/HD_191939/phot_w_err_HD_191939_ss.fits'),
+    'TOI-1201': Path(f'tables/list_runs/TOI-1201/phot_list_run/phot_w_err_TOI-1201.fits'),  # was phot_gaia_run_on61outof88
+    'TOI-561': Path(f'tables/list_runs/TOI-561/phot_list_run_111outof164_manually_stiched/phot_w_err_TOI-561.fits'),
+    'TOI-431': Path(f'tables/list_runs/TOI-431/phot_list_run/phot_w_err_TOI-431.fits'),
+    'TOI-1410': Path(f'tables/list_runs/TOI-1410/phot_gaia_run/phot_w_err_TOI-1410.fits'),
+    'TOI-178': Path(f'tables/list_runs/TOI-178/phot_gaia_run/phot_w_err_TOI-178.fits'),
+    'TOI-1759': Path(f'tables/list_runs/TOI-1759/phot_gaia_run/phot_w_err_TOI-1759.fits'),
+    'V494_Cep': Path(f'tables/list_runs/TOI-1759/phot_gaia_run/phot_w_err_TOI-1759.fits'),
 }
 
 COLORS = {'B': 'C0', 'V': 'C2', 'R': 'C3', 'I': 'darkmagenta'}
 MARKERS = {'B': 'o', 'V': 'X', 'R': 's', 'I': 'D'}
+BAND_ORDER_INDEX = ['B', 'V', 'R', 'I'].index
+
+
+def get_input_path(target):
+    return INPUT_PATHS.get(
+        target,
+        Path(f'tables/list_runs/{target}/phot_list_run/phot_w_err_{target}.fits')
+    )
 
 
 def get_comparison_star_list(target, band):
-    target_comp_star_dict = COMPARISON_STAR.get(target)
-    if target_comp_star_dict:
-        comp_star_list = target_comp_star_dict.get(band)
+    target_comp_star_exc_dictt = COMPARISON_STAR.get(target)
+    if target_comp_star_exc_dictt:
+        comp_star_list = target_comp_star_exc_dictt.get(band)
         if comp_star_list:
             return comp_star_list
     return []
+
+
+def get_excluded_comp(target, band, fill=None):
+    """
+    Get the list of excluded comparison stars for a given target and band.
+
+    Parameters
+    ----------
+    target: (str) – target name
+    band: (str) – band name
+    fill: (any, optional) – value to return if no excluded stars are found. 
+        Should be something that evaluates to False. Default: None.
+
+    Returns
+    -------
+    list
+        List of excluded comparison stars. If no excluded stars are found, return fill.
+    """
+    exc_dict = EXCLUDED_COMP_STAR.get(target)
+    if exc_dict:
+        exc_set = exc_dict.get('all', set())
+        exc_set.update(exc_dict.get(band, set()))
+        if exc_set:
+            return list(exc_set)
+    return fill
 
 
 def get_comp_mags(star, band: str, target: str = None):
@@ -289,7 +364,7 @@ def get_hst(target: str, path=None, url=None, future=False):
 #     """
 #     Process StSci HST GO 17192 XML status
 #
-#     :return: time at which XML is fetched, dict of past visits, dict of future visits
+#     :return: time at which XML is fetched, exc_dictt of past visits, exc_dictt of future visits
 #     """
 #     archived = {}
 #     future = {}
@@ -376,8 +451,8 @@ def get_hst(target: str, path=None, url=None, future=False):
 #     return report_time, archived, future
 #
 #
-# def plot_hst(id, dict, ax, c):
-#     times = np.array(dict.get(id.replace(' ', '-')))
+# def plot_hst(id, exc_dictt, ax, c):
+#     times = np.array(exc_dictt.get(id.replace(' ', '-')))
 #     if len(times.shape) > 1:
 #         for s, e in times:
 #             mid = s + (e - s) / 2

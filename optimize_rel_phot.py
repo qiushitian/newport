@@ -164,11 +164,12 @@ class RelativePhotometryEngine:
             res['intraday_std'] = np.array(intraday_stds)
 
         # 3. Sigma Clipping
-        if sig_clip > 0 and len(res['flux']) > 2:
+        inliers = np.ones(len(res['flux']), dtype=bool)
+        if sig_clip > 0:  # TODO `len(res['flux']) > 2` was removed. Better way?
             med = np.nanmedian(res['flux'])
             std = np.nanstd(res['flux'])
             inliers = np.abs(res['flux'] - med) < sig_clip * std
-            res[f'within_{sig_clip}_sig'] = inliers # TODO save sig_clip in meta?
+            res[f'within_{sig_clip}_sig'] = inliers  # TODO save sig_clip in meta?
         
         # 4. Normalize by median
         norm = np.median(res['flux'][inliers])
@@ -265,6 +266,8 @@ def plot_target(base_path, target_name, n_std_mid=12, savefig_path=None, bands=[
     """
     N_SIG = 1
 
+    band_stats_file_content = ''
+
     base_path = Path(base_path)
 
     wfc3, stis = newport.get_hst(
@@ -292,8 +295,12 @@ def plot_target(base_path, target_name, n_std_mid=12, savefig_path=None, bands=[
         bin_path = base_path.parent / f"bin_{base_path.stem}_{band}.fits"
         unbin_path = base_path.parent / f"unbin_{base_path.stem}_{band}.fits"
         
-        bin_table = table.Table.read(bin_path)
-        unbin_table = table.Table.read(unbin_path)
+        try:
+            bin_table = table.Table.read(bin_path)
+            unbin_table = table.Table.read(unbin_path)
+        except:
+            print(f"No data for band {band}. Skipping.")
+            continue
 
         rms_day = bin_table.meta['RMSDAY']
         # rms_intra = bin_table.meta['RMSINTRA']
@@ -304,7 +311,9 @@ def plot_target(base_path, target_name, n_std_mid=12, savefig_path=None, bands=[
         # ][0]
         # bin_table = bin_table[bin_table[within_sig_colname]]
 
-        print(f'{band}\t{len(bin_table)}\t{len(unbin_table)}')
+        band_stats_str = f'{band}\t{len(bin_table)}\t{len(unbin_table)}\n'
+        print(band_stats_str, end='')
+        band_stats_file_content += band_stats_str
             
         # Time conversion
         t_unbin = Time(unbin_table['jd'], format='jd').to_datetime()
@@ -383,6 +392,12 @@ def plot_target(base_path, target_name, n_std_mid=12, savefig_path=None, bands=[
         # rms_intra = bin_table.meta.get('RMS_INTRA', 0)
         # ax.set_title(f"Daily RMS: {rms_day:.6f} | Intraday RMS: {rms_intra:.6f}", fontsize=10)
         # ax.legend(loc='upper right', fontsize=8)
+    
+    # Save band statistics text file
+    band_stats_txt_path = savefig_path.parent / "band_stats.txt"
+    with open(band_stats_txt_path, "w") as file:
+        file.write(band_stats_file_content)
+    print(f'Band statistics saved to {band_stats_txt_path}')
 
     # # Rotation for bottom row
     # plt.setp(axs[-1].get_xticklabels(), rotation=45, ha='right')
@@ -454,8 +469,267 @@ def plot_target(base_path, target_name, n_std_mid=12, savefig_path=None, bands=[
     #         if label_condition:
     #             handles.append(hh)
     #             labels.append(ll)
+
+    # if hasattr(wfc3_line, "__getitem__"):
+    #     wfc3_line = wfc3_line[0]
+    # if hasattr(stis_line, "__getitem__"):
+    #     stis_line = stis_line[0]
+
+    print(f'this is wfc3_line: {wfc3_line}')
+    print(f'this is stis_line: {stis_line}')
+
+    if wfc3_line and stis_line:
+        # if handles and labels:  # TODO verify?
+        handles = [wfc3_line, stis_line]
+        labels = [wfc3_line.get_label(), stis_line.get_label()]
+
+        print(f'this is handles: {handles}')
+        print(f'this is labels: {labels}')
+
+        fig.legend(
+            ncol=2 if use_panel_titles else 3,
+            loc='upper center', bbox_to_anchor=(0.5, 1),
+            handles=handles, labels=labels
+        )
+    else:
+        print("Either or both `wfc3_line` or `stis_line` is empty. Not plotting HST legend.")
+    
+    plt.tight_layout()
+    fig.subplots_adjust(top=0.94)  # Make room for dual legends
+    
+    if savefig_path:
+        plt.savefig(savefig_path, bbox_inches='tight') # TODO verify if bbox tight is needed
+        print(f"Target plot saved to {savefig_path}")
+    plt.show()
+    plt.close()
+
+
+def plot_target_ppm(base_path, target_name, n_std_mid=12, savefig_path=None, bands=['B', 'V', 'R', 'I']):
+    """
+    Main monitoring plot for the primary science target, 
+    plotted in ppm and centered around (max - min) / 2.
+    """
+    N_SIG = 1
+
+    band_stats_file_content = ''
+
+    base_path = Path(base_path)
+
+    wfc3, stis = newport.get_hst(
+        target_name,
+        path='xml/HST-17192-visit-status_20260216.xml'
+    )
+
+    fig, axs = plt.subplots(
+        nrows=len(bands), figsize=(8, 1.7 * len(bands)),
+        sharex=True, sharey=True
+    )
+    if len(bands) == 1: axs = [axs]
+
+    # --- Aesthetic Configuration ---
+    use_panel_titles = True  # Toggle between panel titles and per-band legends
+    color_wfc3 = 'peru' # Previous: C5
+    color_stis = 'olive'   # Previous: C1
+
+    std_mid = 0
+
+    wfc3_line, stis_line = [], []
+    
+    for i, band in enumerate(bands):
+        ax = axs[i]
+        bin_path = base_path.parent / f"bin_{base_path.stem}_{band}.fits"
+        unbin_path = base_path.parent / f"unbin_{base_path.stem}_{band}.fits"
+        
+        bin_table = table.Table.read(bin_path)
+        unbin_table = table.Table.read(unbin_path)
+
+        rms_day = bin_table.meta['RMSDAY']
+        # rms_intra = bin_table.meta['RMSINTRA']
+
+        # within_sig_colname = [
+        #     _ for _ in bin_table.colnames 
+        #     if _.startswith('within_') and _.endswith('_sig')
+        # ][0]
+        # bin_table = bin_table[bin_table[within_sig_colname]]
+
+        band_stats_str = f'{band}\t{len(bin_table)}\t{len(unbin_table)}\n'
+        print(band_stats_str, end='')
+        band_stats_file_content += band_stats_str
+            
+        # Time conversion
+        t_unbin = Time(unbin_table['jd'], format='jd').to_datetime()
+        t_bin = Time(bin_table['jd'], format='jd').to_datetime()
+
+        # Calculate shift
+        shift = (np.nanpercentile(bin_table['flux'], 95) - np.nanpercentile(bin_table['flux'], 5)) / 2
+        unbinned_flux = (unbin_table['flux'] - shift) * 1e6
+        binned_flux = (bin_table['flux'] - shift) * 1e6
+        binned_error = bin_table['intraday_std'] * 1e6
+        unbinned_error = unbin_table['error'] * 1e6
+        
+        # Unbinned points in background
+        unbin_artist = ax.errorbar(
+            t_unbin, unbinned_flux,
+            # yerr=unbinned_error,
+            fmt='o', color='silver',
+            ms=5.5, alpha=0.2, markeredgewidth=0, ecolor='lightgrey', elinewidth=1,
+            label='Unbinned'
+        )
+        
+        # Binned points with error bars
+        binned_artist = ax.errorbar(
+            t_bin, binned_flux,
+            yerr=binned_error,
+            fmt=newport.MARKERS[band], color=newport.COLORS[band],
+            alpha=0.7, markeredgewidth=0,
+            ms=7, capsize=6, label=f'{band} band'
+        )
+
+        # Plot HST
+        for _ in wfc3:
+            wfc3_line = ax.axvline(
+                _.to_datetime(),
+                zorder=4, ls='--', c=color_wfc3, linewidth=1.8, alpha=0.7,
+                label='HST/WFC3 planetary transit visits'
+            )
+        for _ in stis:
+            stis_line = ax.axvline(
+                _.to_datetime(),
+                zorder=4, ls=':', c=color_stis, linewidth=1.8, alpha=0.8,
+                label='HST/STIS host star observation'
+            )
+        
+        # Panel Title (Color matched)
+        if use_panel_titles:
+            ax.text(
+                0.18, 0.92, f"{band} band", transform=ax.transAxes, 
+                fontweight='bold', va='top', color=newport.COLORS[band],
+                fontsize=11
+            )
+            # ax.legend(
+            #     handles=[binned_artist, unbin_artist],
+            #     labels=[binned_artist.get_label(), unbin_artist.get_label()],
+            #     loc='upper left', bbox_to_anchor=(0.18, 0.95), ncol=1
+            # )
+
+        # mean line and std patch
+        x1, x2 = ax.get_xlim()
+        # x1, x2 = datetime(2022, 1, 1), datetime(2025, 12, 31)
+        y1, y2 = 1 - rms_day * N_SIG, 1 + rms_day * N_SIG
+        rect = patches.Rectangle((x1, y1), x2 - x1, y2 - y1, alpha=0.1, color=newport.COLORS[band], lw=0, zorder=0)
+        ax.add_patch(rect)
+        ax.set_xlim(x1, x2)
+
+        # Calculate ylim
+        p25, p75 = np.nanpercentile(binned_flux, [25, 75])
+        mid_mask = (binned_flux >= p25) & (binned_flux <= p75)
+        _std_mid = np.nanstd(binned_flux[mid_mask])
+        std_mid = max(std_mid, _std_mid)
+        
+        ax.grid(True, 'major', alpha=0.3)
+        ax.grid(True, 'minor', alpha=0.1)
+        ax.tick_params(axis='x', direction='in', which='both', labelsize=10)  # Ticks inside
+        ax.tick_params(axis='y', direction='in')
+
+        # Limit x-axis tick density and snap to months
+        ax.xaxis.set_major_locator(mdates.AutoDateLocator(maxticks=8))
+        ax.xaxis.set_minor_locator(mdates.MonthLocator())
+        # ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+        
+        # # Metadata labels
+        # rms_day = bin_table.meta.get('RMS_DAY', 0)
+        # rms_intra = bin_table.meta.get('RMS_INTRA', 0)
+        # ax.set_title(f"Daily RMS: {rms_day:.6f} | Intraday RMS: {rms_intra:.6f}", fontsize=10)
+        # ax.legend(loc='upper right', fontsize=8)
+
+    # Save band statistics text file
+    band_stats_txt_path = savefig_path.parent / "band_stats.txt"
+    with open(band_stats_txt_path, "w") as file:
+        file.write(band_stats_file_content)
+    print(f'Band statistics saved to {band_stats_txt_path}')
+
+    # # Rotation for bottom row
+    # plt.setp(axs[-1].get_xticklabels(), rotation=45, ha='right')
+
+    # Set ylim
+    axs[-1].set_ylim(- n_std_mid * std_mid, n_std_mid * std_mid)
+
+    fig.supxlabel("Time of observation", x=0.53, y=0.03)
+    fig.supylabel("$\Delta F$ (ppm)", x=0.025, y=0.5)
+    
+    # # Global Legend matching plot_mag.py style
+    # handles, labels = [], []
+    # for ax in axs:
+    #     h, l = ax.get_legend_handles_labels()
+    #     handles.extend(h)
+    #     labels.extend(l)
+
+    # handles.extend([
+    #     wfc3_line,
+    #     # stis_line
+    # ])
+
+    # # --- Layered Legend ---
+    # # Row 1: Filter Bands (Deduplicated)
+    # all_h, all_l = [], []
+    # for _ax in axs:
+    #     _h, _l = _ax.get_legend_handles_labels()
+    #     all_h.extend(_h)
+    #     all_l.extend(_l)
+    
+    # band_handles, band_labels = [], []
+    # for h, l in zip(all_h, all_l):
+    #     if l in bands and l not in band_labels:
+    #         band_handles.append(h)
+    #         band_labels.append(l)
+    
+    # # Sort bands for consistency (B, V, R, I)
+    # sorted_indices = np.argsort([['B', 'V', 'R', 'I'].index(b) for b in band_labels])
+    # band_handles = [band_handles[i] for i in sorted_indices]
+    # band_labels = [band_labels[i] for i in sorted_indices]
+
+    # # Row 2: HST & Others
+    # hst_handles, hst_labels = [], []
+    # for h, l in zip(all_h, all_l):
+    #     if 'HST' in l and l not in band_labels and l not in hst_labels:
+    #         hst_handles.append(h)
+    #         hst_labels.append(l)
+
+    # # Place Band Legend
+    # leg1 = fig.legend(band_handles, band_labels, ncol=len(band_labels), 
+    #                   loc='upper center', bbox_to_anchor=(0.54, 1.003), fontsize=9)
+    # fig.add_artist(leg1)
+    
+    # # Place HST Legend (spanning row)
+    # if hst_handles:
+    #     leg2 = fig.legend(hst_handles, hst_labels, ncol=1, 
+    #                loc='upper center', bbox_to_anchor=(0.54, 0.965), fontsize=9)
+    #     fig.add_artist(leg2)
+
+    handles, labels = [], []
+    # for ax in axs:
+    #     h, l = ax.get_legend_handles_labels()
+    #     for hh, ll in zip(h, l):
+    #         # If using panel titles, exclude band labels from the legend
+    #         label_condition = (ll not in labels)
+    #         if use_panel_titles:
+    #             label_condition = (ll not in labels and 'band' not in ll)
+            
+    #         if label_condition:
+    #             handles.append(hh)
+    #             labels.append(ll)
+
+    # if hasattr(wfc3_line, "__getitem__"):
+    #     wfc3_line = wfc3_line[0]
+    # if hasattr(stis_line, "__getitem__"):
+    #     stis_line = stis_line[0]
+
+    # if handles and labels:  # TODO verify?
     handles = [wfc3_line, stis_line]
     labels = [wfc3_line.get_label(), stis_line.get_label()]
+
+    print(f'this is handles: {handles}')
+    print(f'this is labels: {labels}')
 
     fig.legend(
         ncol=2 if use_panel_titles else 3,
@@ -471,6 +745,7 @@ def plot_target(base_path, target_name, n_std_mid=12, savefig_path=None, bands=[
         print(f"Target plot saved to {savefig_path}")
     plt.show()
     plt.close()
+
 
 
 def plot_fold(base_path, target_name, period, t0=0, n_std_mid=10, savefig_path=None, bands=['B', 'V', 'R', 'I'], show=True):
@@ -628,8 +903,27 @@ def optimize_ensemble(phot_table, target_id, metric='daily', criterion=0.7, max_
     return best_ensemble, best_rms
 
 
-def get_comps(phot_table, target_id, criterion=0.8, exclude_ids=None):
-    """Return list of comp stars that meet criterion."""
+def get_comps(phot_table, target_id, criterion=0.8, exclude_ids=None, return_all=True):
+    """
+    Return list of comp stars that meet criterion.
+    
+    Parameters
+    ----------
+    phot_table: (astropy.table.Table) – table of photometric data
+    target_id: (str) – target ID
+    criterion: (float, optional) – minimum valid fraction of data for a star
+        to be considered. Default: 0.8.
+    exclude_ids: (list, optional) – list of comparison stars to exclude.
+        Default: None.
+    return_all: (bool, optional) – if True, return a second list that
+        contains all stars that meet criterion. Default: True.
+        
+    Returns
+    -------
+    list or tuple(list, list)
+        Selected comparison stars, and, if return_all is True,
+        all comparison stars that meet criterion.
+    """
     # Identify potential comparison stars (digit columns, not target)
     comp_ids = [col for col in phot_table.colnames if col.isdigit() and col != str(target_id)]
     
@@ -651,8 +945,11 @@ def get_comps(phot_table, target_id, criterion=0.8, exclude_ids=None):
             
         if valid_frac >= criterion:
             qualified_comps.append(cid)
-                
-    return qualified_comps
+
+    if return_all:
+        return qualified_comps, comp_ids
+    else:
+        return qualified_comps
 
 
 def load_optimized_json(json_path):
@@ -701,7 +998,15 @@ def run_comp_diagnostics(full_table, target_id, output_dir, json_dir, metric='am
             print(best_ensemble)
 
 
-def phot_comp(full_table, target_id, comp_ids, output_dir, sig_clip=3, overwrite=True, bands=['B', 'V', 'R', 'I']):
+def phot_comp(
+    full_table,
+    target_id,
+    comp_ids : set[str],
+    output_dir,
+    sig_clip=3,
+    overwrite=True,
+    bands=['B', 'V', 'R', 'I']
+):
     """
     Runs photometry on comparison stars.
     """
@@ -720,26 +1025,41 @@ def phot_comp(full_table, target_id, comp_ids, output_dir, sig_clip=3, overwrite
             engine.save(comp_ids - {cid}, output_prefix, overwrite=overwrite, sig_clip=sig_clip)
 
 
-def plot_comp(base_dir, all_comps, used_comps, target_name, savefig_path=None, n_std_mid=11, bands=['B', 'V', 'R', 'I']):
+def plot_comp(
+    base_dir,
+    all_comps : set[str],
+    used_comps : set[str],
+    target_name,
+    savefig_path=None,
+    n_std_mid=11,
+    bands=['B', 'V', 'R', 'I'],
+    plot_hst=False
+):
     """
     Plots the diagnostic light curves for all unique comparison stars in a grid.
     Rows = Bands, Columns = Stars.
     """
     base_dir = Path(base_dir)
 
+    # Sort bands to BVRI order
+    bands = sorted(bands, key=newport.BAND_ORDER_INDEX)
+
     n_bands = len(bands)
     n_stars = len(all_comps)
     
-    fig, axs = plt.subplots(nrows=n_bands, ncols=n_stars, 
-                             figsize=(3.5 * n_stars - 2, 1.5 * n_bands), 
-                             sharex='col', sharey='row',
-                             squeeze=False)
+    fig, axs = plt.subplots(
+        nrows=n_bands, ncols=n_stars,
+        figsize=(3.5 * n_stars - 2, 1.5 * n_bands),
+        sharex='col', sharey='row',
+        squeeze=False  # TODO what's squeeze? Why not layout='constrained'?
+    )
 
     # Retrieve HST timings
-    wfc3, stis = newport.get_hst(
-        target_name,
-        path='xml/HST-17192-visit-status_20260216.xml'
-    )
+    if plot_hst:
+        wfc3, stis = newport.get_hst(
+            target_name,
+            path='xml/HST-17192-visit-status_20260216.xml'
+        )
 
     # 2. Iterate and plot
     for col_idx, comp_id in enumerate(all_comps):
@@ -783,18 +1103,19 @@ def plot_comp(base_dir, all_comps, used_comps, target_name, savefig_path=None, n
             for line in eb[2]: line.set_alpha(ebar_alpha)
 
             # --- Background HST markers ---
-            for _ in wfc3:
-                wfc3_line = ax.axvline(
-                    _.to_datetime(),
-                    zorder=4, ls='--', c='C1', linewidth=1.5, alpha=0.6,
-                    label='HST WFC3 planetary transit obs.'
-                )
-            for _ in stis:
-                stis_line = ax.axvline(
-                    _.to_datetime(),
-                    zorder=4, ls='--', c='C4', linewidth=1.5, alpha=0.6,
-                    label='HST STIS host star observation'
-                )
+            if plot_hst:
+                for _ in wfc3:
+                    wfc3_line = ax.axvline(
+                        _.to_datetime(),
+                        zorder=4, ls='--', c='C1', linewidth=1.5, alpha=0.6,
+                        label='HST WFC3 planetary transit obs.'
+                    )
+                for _ in stis:
+                    stis_line = ax.axvline(
+                        _.to_datetime(),
+                        zorder=4, ls='--', c='C4', linewidth=1.5, alpha=0.6,
+                        label='HST STIS host star observation'
+                    )
 
             # 3. YLIM Scaling: ±3 std of middle 50%
             flux = bin_table['flux']
@@ -870,7 +1191,7 @@ def plot_comp(base_dir, all_comps, used_comps, target_name, savefig_path=None, n
                 labels.append(ll)
 
     fig.legend(
-        ncol=3, loc='upper center', bbox_to_anchor=(0.5, 0.98), handles=handles, labels=labels
+        ncol=4, loc='upper center', bbox_to_anchor=(0.5, 0.98), handles=handles, labels=labels
     )
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.91])

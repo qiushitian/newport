@@ -21,7 +21,8 @@ MAX_PERIOD = 10000000  # days
 N_0 = 5
 MANUAL_TIME_RANGE = 378.72
 PERIOD_GRID_RANGE = (150, 400)
-SHOW_WINDOW = False
+SHOW_WINDOW = True
+SHOW_PROT = False
 
 FAP = 1  # False alarm probability percentage
 XTICKS = np.array(
@@ -200,9 +201,10 @@ if __name__ == "__main__":
         np.arange(f_switch[1], f_max, grid_step)
     ]) / u.d
 
-    # P_max = 2 * pi * R / (v sin i)
-    p_rot_max_vsini = (2 * np.pi * R_STAR * 6.957e5) / (VSINI * 86400)
-    print(f"Max P_rot from vsini ({VSINI} km/s, R={R_STAR} R_sun): {p_rot_max_vsini:.2f} days")
+    if SHOW_PROT:
+        # P_max = 2 * pi * R / (v sin i)
+        p_rot_max_vsini = (2 * np.pi * R_STAR * 6.957e5) / (VSINI * 86400)
+        print(f"Max P_rot from vsini ({VSINI} km/s, R={R_STAR} R_sun): {p_rot_max_vsini:.2f} days")
 
     fig, axs = plt.subplots(5, 1, figsize=(4.5, 5), sharex=True, sharey=True)
     plt.subplots_adjust(
@@ -246,14 +248,14 @@ if __name__ == "__main__":
         l_p, l_w, l_fap, l_vsini, ls[band], ls_window[band] = compute_and_plot_ls(
             axs[i], freq_grid, t_data, y_data, dy_data, f"{band} band", 
             COLORS[band],
-            p_rot_max_vsini,
+            p_rot_max_vsini if SHOW_PROT else None,
             fap_p=FAP,
             ranges=RANGES,
             show_window=SHOW_WINDOW,
             # show_text=False
         )
 
-        if i == 0:
+        if i == 0 and SHOW_PROT:
             legend_handles.extend([l_fap, l_vsini])
             legend_labels.extend([l_fap.get_label(), l_vsini.get_label()])
 
@@ -267,7 +269,7 @@ if __name__ == "__main__":
 
     l_p, l_w, l_fap, l_vsini, ls['multi'], ls_window['multi'] = compute_and_plot_ls(
         axs[4], freq_grid, t_all, y_all, dy_all, "Multiband", 'k', 
-        p_rot_max_vsini,
+        p_rot_max_vsini if SHOW_PROT else None,
         is_multiband=True, band_indices=b_all, ranges=RANGES,
         show_window=SHOW_WINDOW,
         # show_text=False

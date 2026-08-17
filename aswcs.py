@@ -97,3 +97,40 @@ def ini_to_wcs(ini_path):
     # Return the WCS object
     from astropy.wcs import WCS
     return WCS(header)
+
+
+def add_wcs_to_fits(fits_path, save_path=None, overwrite=False):
+    '''
+    Parameters
+    -----
+    fits_path : path-like
+        Path to FITS file to be solved
+    save_path : path-like
+        Path to which solved .wcs and .ini files are saved
+    overwrite : bool
+        Whether to overwrite the file
+    '''
+    from pathlib import Path
+    from astropy.io import fits
+
+    if save_path is None and overwrite==False:
+        if input(
+            f"The original file {fits_path} will be overwritten "
+            "but `overwrite` is set to False. Change it to True? [y/*]: "
+        ).lower().startswith('y'):
+            overwrite = True
+        else:
+            raise ValueError("File would be overwritten but `overwrite` is set to False.")
+    
+    if not isinstance(fits_path, Path):
+        fits_path = Path(fits_path)
+
+    wcs = ini_to_wcs(fits_path.with_suffix('.ini'))
+
+    hdu = fits.open(fits_path, output_verify='silent')[0]
+    hdu.header.update(wcs.to_header())
+    
+    if save_path is None:
+        save_path = fits_path
+        
+    hdu.writeto(save_path, overwrite=overwrite)
