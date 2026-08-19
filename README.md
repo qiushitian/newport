@@ -31,7 +31,7 @@ macOS will prompt that the ASTAP program and the star database installer "cannot
 
 ## Changelog
 
-[https://github.com/qiushitian/newport/commit/c24678a3038488c4e17e566a4f2ed11e8410bbf7](https://github.com/qiushitian/newport/commit/c24678a3038488c4e17e566a4f2ed11e8410bbf7) is the closest representation of the state of the code at the time of Chris's thesis.
+Commit [`c24678a`](https://github.com/qiushitian/newport/commit/c24678a3038488c4e17e566a4f2ed11e8410bbf7) is the closest representation of the state of the code at the time of Chris's thesis.
 
 ## Dependencies
 

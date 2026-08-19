@@ -1,0 +1,15 @@
+[project]
+name = "newport"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "astropy>=5.3.2",
+    "ccdproc>=2.5.1",
+    "matplotlib>=3.9.4",
+    "numpy>=2.0.2",
+    "photutils>=1.11.0",
+    "scipy>=1.13.1",
+    "tqdm>=4.70.0",
+]
