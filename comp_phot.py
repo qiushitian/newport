@@ -11,7 +11,7 @@ print(f'Newport comparison star photometry for {TARGET} to {OUTPUT_DIR}')
 
 # Read json to find all comp stars
 comp_phot_full_table = table.Table.read(get_input_path(TARGET))
-comp_phot_bands_avail = np.unique(comp_phot_full_table['band'])
+comp_phot_bands_avail = np.unique(comp_phot_full_table['band']).astype('str')
 ALL_COMPS = set()
 for band in comp_phot_bands_avail:
     json_path = OUTPUT_DIR / f"opt_ensemble_{band}.json"

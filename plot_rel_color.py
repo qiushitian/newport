@@ -28,10 +28,7 @@ if __name__ == '__main__':
     ctab = table.Table.read(TABLE_DIR / CTAB_NAME)
     colors = np.unique(ctab['band'])
 
-    wfc3, stis = newport.get_hst(
-        TARGET_NAME,
-        path='xml/HST-17192-visit-status_20260216.xml'
-    )
+    wfc3, stis = newport.get_hst(TARGET_NAME)
 
     fig, axs = plt.subplots(
         nrows=len(colors), figsize=(8, 1.7 * len(colors)),

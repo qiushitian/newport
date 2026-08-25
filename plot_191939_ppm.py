@@ -31,10 +31,7 @@ if __name__ == "__main__":
 
     N_SIG = 1
 
-    wfc3, stis = newport.get_hst(
-        target_name,
-        path='xml/HST-17192-visit-status_20260216.xml'
-    )
+    wfc3, stis = newport.get_hst(target_name)
 
     fig, axs = plt.subplots(
         nrows=len(bands), figsize=(8, 1.7 * len(bands)),

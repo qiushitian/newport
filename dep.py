@@ -14,6 +14,7 @@ def __import(pkg: str) -> object:
 
 
 try:
+    import matplotlib as mpl
     import matplotlib.pyplot as plt
 except ImportError:
     print("Cannot import Matplotlib. No plotting possible.")
@@ -21,9 +22,9 @@ else:
     try:
         import visualastro as va
     except ImportError:
-        print("Cannot import VisualAstro. Plot with Matplotlib default.")
-    else:
-        plt.style.use(STYLE)
+        print("Cannot import VisualAstro. Plot with Matplotlib defaults.")
+    # else:
+    #     plt.style.use(STYLE)
 
 
 if __name__ == '__main__':

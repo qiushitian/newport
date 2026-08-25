@@ -49,7 +49,7 @@ if __name__ == '__main__':
 
         wfc3, stis = None, None
         if PLOT_HST:
-            wfc3, stis = newport.get_hst(fn, path='xml/HST-17192-visit-status-20250205.xml')
+            wfc3, stis = newport.get_hst(fn)
 
         plotted = False
         fig, axs = plt.subplots(nrows=4, figsize=(6, 6.5), sharex='all', dpi=300)

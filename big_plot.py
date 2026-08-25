@@ -15,11 +15,11 @@ from astropy.time import Time
 from pathlib import Path
 from zoneinfo import ZoneInfo
 import newport
+from target_phot import OUTPUT_DIR
 
 EASTERN = ZoneInfo('US/Eastern')
 
 # ── Configuration ──────────────────────────────────────────────
-READ_DIR = Path('tables/opt_comp_stars/HD_191939/two')
 BANDS = ['B', 'V', 'R', 'I']
 
 HIGH_STD = 0.08    # Flag night if intraday_std / flux > this in any band
@@ -86,7 +86,7 @@ def night_to_date_str(night_int, mmdd=False):
 
 
 if __name__ == '__main__':
-    bin_tables, unbin_tables = load_tables(READ_DIR, BANDS)
+    bin_tables, unbin_tables = load_tables(OUTPUT_DIR, BANDS)
     if not bin_tables:
         print("No tables found.")
         exit()
@@ -344,7 +344,7 @@ if __name__ == '__main__':
     fig.subplots_adjust(top=0.96)
 
     if SAVEFIG_NAME:
-        savefig_path = READ_DIR / SAVEFIG_NAME
+        savefig_path = OUTPUT_DIR / SAVEFIG_NAME
         plt.savefig(savefig_path, bbox_inches='tight')
         print(f"Saved to {savefig_path}")
 

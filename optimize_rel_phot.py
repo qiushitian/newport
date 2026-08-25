@@ -5,22 +5,24 @@ Performs exhaustive search for the optimal comparison star ensemble.
 """
 
 import numpy as np
-from astropy import table
 import itertools
 import json
 from pathlib import Path
 from tqdm import tqdm
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-from matplotlib import patches, ticker, dates as mdates
 from datetime import datetime
+from astropy import table
 from astropy.time import Time
-import newport
 from astropy.timeseries import LombScargle
 import astropy.units as u
+import newport
 
-plt.rcParams["font.family"] = "sans-serif"
-plt.rcParams["font.sans-serif"] = ["Verdana"]
+from dep import mpl, plt
+patches = mpl.patches
+ticker = mpl.ticker
+mdates = mpl.dates
+
+from dep import va
+
 
 class RelativePhotometryEngine:
     def __init__(self, input_table, target_id):
@@ -260,7 +262,20 @@ class RelativePhotometryEngine:
         bin_table.write(bin_path, overwrite=True)
         unbin_table.write(unbin_path, overwrite=True)
 
-def plot_target(base_path, target_name, n_std_mid=12, savefig_path=None, bands=['B', 'V', 'R', 'I']):
+def plot_target(
+    base_path,
+    target_name,
+    n_std_mid=12,
+    xlim : tuple = None,
+    x_title : float = 0.18,
+    y_title : float = 0.92,
+    fontsize=11,
+    fig_width=8,
+    fig_height_per_panel=1.7,
+    sp_adj_top=0.94,
+    savefig_path=None,
+    bands=['B', 'V', 'R', 'I']
+):
     """
     Generates a multi-band diagnostic plot for the primary science target.
     """
@@ -270,14 +285,13 @@ def plot_target(base_path, target_name, n_std_mid=12, savefig_path=None, bands=[
 
     base_path = Path(base_path)
 
-    wfc3, stis = newport.get_hst(
-        target_name,
-        path='xml/HST-17192-visit-status_20260216.xml'
-    )
+    wfc3, stis = newport.get_hst(target_name)
 
     fig, axs = plt.subplots(
-        nrows=len(bands), figsize=(8, 1.7 * len(bands)),
-        sharex=True, sharey=True
+        nrows=len(bands),
+        figsize=(fig_width, fig_height_per_panel * len(bands)),
+        sharex=True,
+        sharey=True
     )
     if len(bands) == 1: axs = [axs]
 
@@ -352,9 +366,9 @@ def plot_target(base_path, target_name, n_std_mid=12, savefig_path=None, bands=[
         # Panel Title (Color matched)
         if use_panel_titles:
             ax.text(
-                0.18, 0.92, f"{band} band", transform=ax.transAxes, 
+                x_title, y_title, f"{band} band", transform=ax.transAxes, 
                 fontweight='bold', va='top', color=newport.COLORS[band],
-                fontsize=11
+                # fontsize=11
             )
             # ax.legend(
             #     handles=[binned_artist, unbin_artist],
@@ -363,8 +377,11 @@ def plot_target(base_path, target_name, n_std_mid=12, savefig_path=None, bands=[
             # )
 
         # mean line and std patch
-        x1, x2 = ax.get_xlim()
-        # x1, x2 = datetime(2022, 1, 1), datetime(2025, 12, 31)
+        if xlim:
+            x1, x2 = xlim[0], xlim[1]
+        else:
+            x1, x2 = ax.get_xlim()
+            # x1, x2 = datetime(2022, 1, 1), datetime(2025, 12, 31)
         y1, y2 = 1 - rms_day * N_SIG, 1 + rms_day * N_SIG
         rect = patches.Rectangle((x1, y1), x2 - x1, y2 - y1, alpha=0.1, color=newport.COLORS[band], lw=0, zorder=0)
         ax.add_patch(rect)
@@ -495,7 +512,7 @@ def plot_target(base_path, target_name, n_std_mid=12, savefig_path=None, bands=[
         print("Either or both `wfc3_line` or `stis_line` is empty. Not plotting HST legend.")
     
     plt.tight_layout()
-    fig.subplots_adjust(top=0.94)  # Make room for dual legends
+    fig.subplots_adjust(top=sp_adj_top)  # Make room for dual legends
     
     if savefig_path:
         plt.savefig(savefig_path, bbox_inches='tight') # TODO verify if bbox tight is needed
@@ -515,10 +532,7 @@ def plot_target_ppm(base_path, target_name, n_std_mid=12, savefig_path=None, ban
 
     base_path = Path(base_path)
 
-    wfc3, stis = newport.get_hst(
-        target_name,
-        path='xml/HST-17192-visit-status_20260216.xml'
-    )
+    wfc3, stis = newport.get_hst(target_name)
 
     fig, axs = plt.subplots(
         nrows=len(bands), figsize=(8, 1.7 * len(bands)),
@@ -655,7 +669,7 @@ def plot_target_ppm(base_path, target_name, n_std_mid=12, savefig_path=None, ban
     axs[-1].set_ylim(- n_std_mid * std_mid, n_std_mid * std_mid)
 
     fig.supxlabel("Time of observation", x=0.53, y=0.03)
-    fig.supylabel("$\Delta F$ (ppm)", x=0.025, y=0.5)
+    fig.supylabel(r"$\Delta F$ (ppm)", x=0.025, y=0.5)
     
     # # Global Legend matching plot_mag.py style
     # handles, labels = [], []
@@ -755,10 +769,7 @@ def plot_fold(base_path, target_name, period, t0=0, n_std_mid=10, savefig_path=N
     N_SIG = 1
     base_path = Path(base_path)
 
-    wfc3, stis = newport.get_hst(
-        target_name,
-        path='xml/HST-17192-visit-status_20260216.xml'
-    )
+    wfc3, stis = newport.get_hst(target_name)
 
     fig, axs = plt.subplots(
         nrows=len(bands), figsize=(8, 1.7 * len(bands)), sharex=True, sharey=True
@@ -952,11 +963,36 @@ def get_comps(phot_table, target_id, criterion=0.8, exclude_ids=None, return_all
         return qualified_comps
 
 
-def load_optimized_json(json_path):
-    """Loads the best ensemble list from a previous optimization run JSON."""
+def load_optimized_json(json_path: str | Path) -> list[str]:
+    """
+    Load the best ensemble list from a previous optimization run JSON.
+    
+    Load `forced_comps` first; if not present, load `best_ensemble`.
+
+    Parameters
+    ----------
+    json_path: (str | Path) – path to the JSON file
+    
+    Returns
+    -------
+    list
+        List of comparison stars
+        
+    Raises
+    -------
+    FileNotFoundError
+        If `json_path` does not exist
+    KeyError
+        If no `forced_comps` or `best_ensemble` found in JSON file
+    """
     with open(json_path, 'r') as f:
         data = json.load(f)
-    return data.get('best_ensemble', [])
+    comp_list = data.get('forced_comps', data.get('best_ensemble'))
+    if not comp_list:
+        raise KeyError(
+            f"No `forced_comps` or `best_ensemble` found in {json_path}"
+        )
+    return comp_list
 
 
 def run_comp_diagnostics(full_table, target_id, output_dir, json_dir, metric='amplitude', criterion=0.89, bands=['B', 'V', 'R', 'I']):
@@ -1056,10 +1092,7 @@ def plot_comp(
 
     # Retrieve HST timings
     if plot_hst:
-        wfc3, stis = newport.get_hst(
-            target_name,
-            path='xml/HST-17192-visit-status_20260216.xml'
-        )
+        wfc3, stis = newport.get_hst(target_name)
 
     # 2. Iterate and plot
     for col_idx, comp_id in enumerate(all_comps):

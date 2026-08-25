@@ -12,4 +12,5 @@ dependencies = [
     "photutils>=1.11.0",
     "scipy>=1.13.1",
     "tqdm>=4.70.0",
+    "visualastro>=0.0.8",
 ]

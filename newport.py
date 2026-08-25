@@ -1,7 +1,8 @@
 """
 Newport functional methods
+
+Updated: 2026-08-25
 """
-import ccdproc.version
 import numpy as np
 import astropy
 from datetime import datetime
@@ -16,8 +17,6 @@ import matplotlib
 import json
 from pathlib import Path
 
-print(f'Numpy {np.version.version}, Astropy {astropy.version.version}, photutils {photutils.version.version}, '
-      f'ccdproc {ccdproc.version.version}, Matplotlib {matplotlib.__version__}')
 
 TARGET_FN = [
     'HD_191939',
@@ -181,14 +180,27 @@ EXCLUDED_COMP_STAR = {
 }
 
 INPUT_PATHS = {
-    'HD_191939': Path(f'tables/opt_comp_stars/HD_191939/phot_w_err_HD_191939_ss.fits'),
-    'TOI-1201': Path(f'tables/list_runs/TOI-1201/phot_list_run/phot_w_err_TOI-1201.fits'),  # was phot_gaia_run_on61outof88
-    'TOI-561': Path(f'tables/list_runs/TOI-561/phot_list_run_111outof164_manually_stiched/phot_w_err_TOI-561.fits'),
-    'TOI-431': Path(f'tables/list_runs/TOI-431/phot_list_run/phot_w_err_TOI-431.fits'),
-    'TOI-1410': Path(f'tables/list_runs/TOI-1410/phot_gaia_run/phot_w_err_TOI-1410.fits'),
-    'TOI-178': Path(f'tables/list_runs/TOI-178/phot_gaia_run/phot_w_err_TOI-178.fits'),
-    'TOI-1759': Path(f'tables/list_runs/TOI-1759/phot_gaia_run/phot_w_err_TOI-1759.fits'),
-    'V494_Cep': Path(f'tables/list_runs/TOI-1759/phot_gaia_run/phot_w_err_TOI-1759.fits'),
+    'HD_191939': Path(f'data/tables/opt_comp_stars/HD_191939/phot_w_err_HD_191939_ss.fits'),
+    'TOI-1201': Path(f'data/tables/list_runs/TOI-1201/phot_list_run/phot_w_err_TOI-1201.fits'),  # was phot_gaia_run_on61outof88
+    'TOI-561': Path(f'data/tables/list_runs/TOI-561/phot_list_run_111outof164_manually_stiched/phot_w_err_TOI-561.fits'),
+    'TOI-431': Path(f'data/tables/list_runs/TOI-431/phot_list_run/phot_w_err_TOI-431.fits'),
+    'TOI-1410': Path(f'data/tables/list_runs/TOI-1410/phot_gaia_run/phot_w_err_TOI-1410.fits'),
+    'TOI-178': Path(f'data/tables/list_runs/TOI-178/phot_gaia_run/phot_w_err_TOI-178.fits'),
+    'TOI-1759': Path(f'data/tables/list_runs/TOI-1759/phot_gaia_run/phot_w_err_TOI-1759.fits'),
+    'V494_Cep': Path(f'data/tables/list_runs/TOI-1759/phot_gaia_run/phot_w_err_TOI-1759.fits'),
+}
+
+HST_DIR = Path('data/hst-visit-xml')
+
+HST_PATHS = {
+    'HD_191939': HST_DIR / 'HST-17192-visit-status_20260216.xml',
+    'HD_86226': HST_DIR / 'HST-17192-visit-status_20260216.xml',
+    'TOI-431': HST_DIR / 'HST-17192-visit-status_20260216.xml',
+    'TOI-561': HST_DIR / 'HST-17192-visit-status_20260216.xml',
+    'TOI-1201': HST_DIR / 'HST-17192-visit-status_20260216.xml',
+    'TOI-178': HST_DIR / '17414.xml',
+    'TOI-1759': HST_DIR / '17414.xml',
+    'TOI-1410': HST_DIR / '17414.xml'
 }
 
 COLORS = {'B': 'C0', 'V': 'C2', 'R': 'C3', 'I': 'darkmagenta'}
@@ -302,15 +314,12 @@ def get_super_mag(mags):
     return -2.5 * np.log10(total_flux)  # Convert the total flux back to magnitude
 
 
-def get_hst(target: str, path=None, url=None, future=False):
+def get_hst(target: str, url=None, future=False):
     """
     Returns:
         (wfc3 mid time, stis mid time)
     """
-    if path:
-        with open(path, 'r') as f:
-            xml_string = f.read()
-    elif url:
+    if url:
         if url == '17192' or url == 17192:
             url = 'https://www.stsci.edu/cgi-bin/get-visit-status?id=17192&markupFormat=xml&observatory=HST'
         elif url == '17414' or url == 17414:
@@ -318,7 +327,11 @@ def get_hst(target: str, path=None, url=None, future=False):
         with urllib.request.urlopen(url) as response:
             xml_string = response.read().decode('utf-8')
     else:
-        raise ValueError('`path` and `url` cannot be both None.')
+        if target in HST_PATHS:
+            with open(HST_PATHS[target], 'r') as f:
+                xml_string = f.read()
+        else:
+            raise ValueError(f'No HST visit path found for target {target}')
 
     root = etree.ElementTree.fromstring(xml_string)
 
