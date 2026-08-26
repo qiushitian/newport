@@ -59,7 +59,7 @@ if __name__ == "__main__":
             "band": band,
             "best_ensemble": best_ensemble,
         }
-        output_json = OUTPUT_DIR / f"opt_ensemble_{band}.json"
+        output_json = OUTPUT_DIR / f"comps_{band}.json"
         with open(output_json, "w") as f:
             json.dump(summary, f, indent=4)
         print(f"Summary saved to {output_json}")

@@ -3,7 +3,6 @@
 Relative Photometry Optimization Engine.
 Performs exhaustive search for the optimal comparison star ensemble.
 """
-
 import numpy as np
 import itertools
 import json
@@ -265,22 +264,25 @@ class RelativePhotometryEngine:
 def plot_target(
     base_path,
     target_name,
-    n_std_mid=12,
-    xlim : tuple = None,
-    x_title : float = 0.18,
-    y_title : float = 0.92,
+    n_std_mid: int | float = None,
+    ylim_factor: float = 0.05,
+    tmin: datetime = None,
+    tmax: datetime = None,
+    x_title: float = 0.18,
+    y_title: float = 0.92,
+    sharey=False,
+    shade_n_sig=1,
     fontsize=11,
     fig_width=8,
     fig_height_per_panel=1.7,
     sp_adj_top=0.94,
+    use_panel_titles: bool = True,  # Toggle between panel titles and per-band legends
     savefig_path=None,
     bands=['B', 'V', 'R', 'I']
 ):
     """
     Generates a multi-band diagnostic plot for the primary science target.
     """
-    N_SIG = 1
-
     band_stats_file_content = ''
 
     base_path = Path(base_path)
@@ -291,12 +293,11 @@ def plot_target(
         nrows=len(bands),
         figsize=(fig_width, fig_height_per_panel * len(bands)),
         sharex=True,
-        sharey=True
+        sharey=sharey,
     )
     if len(bands) == 1: axs = [axs]
 
     # --- Aesthetic Configuration ---
-    use_panel_titles = True  # Toggle between panel titles and per-band legends
     color_wfc3 = 'peru' # Previous: C5
     color_stis = 'olive'   # Previous: C1
 
@@ -316,7 +317,16 @@ def plot_target(
             print(f"No data for band {band}. Skipping.")
             continue
 
-        rms_day = bin_table.meta['RMSDAY']
+        if tmin:
+            tmin_jd = Time(tmin).jd
+            bin_table = bin_table[bin_table['jd'] >= tmin_jd]
+            unbin_table = unbin_table[unbin_table['jd'] >= tmin_jd]
+        if tmax:
+            tmax_jd = Time(tmax).jd
+            bin_table = bin_table[bin_table['jd'] <= tmax_jd]
+            unbin_table = unbin_table[unbin_table['jd'] <= tmax_jd]
+
+        rms_day = bin_table.meta['RMSDAY']  # TODO not updated if tmin or tmax
         # rms_intra = bin_table.meta['RMSINTRA']
 
         # within_sig_colname = [
@@ -350,18 +360,22 @@ def plot_target(
         )
 
         # Plot HST
-        for _ in wfc3:
-            wfc3_line = ax.axvline(
-                _.to_datetime(),
-                zorder=4, ls='--', c=color_wfc3, linewidth=1.8, alpha=0.7,
-                label='HST/WFC3 planetary transit visits'
-            )
-        for _ in stis:
-            stis_line = ax.axvline(
-                _.to_datetime(),
-                zorder=4, ls=':', c=color_stis, linewidth=1.8, alpha=0.8,
-                label='HST/STIS host star observation'
-            )
+        for t in wfc3:
+            t = t.to_datetime()
+            if (tmin and t >= tmin) and (tmax and t <= tmax):
+                wfc3_line = ax.axvline(
+                    t,
+                    zorder=4, ls='--', c=color_wfc3, linewidth=1.8, alpha=0.7,
+                    label='HST/WFC3 planetary transit visits'
+                )
+        for t in stis:
+            t = t.to_datetime()
+            if (tmin and t >= tmin) and (tmax and t <= tmax):
+                stis_line = ax.axvline(
+                    t,
+                    zorder=4, ls=':', c=color_stis, linewidth=1.8, alpha=0.8,
+                    label='HST/STIS host star observation'
+                )
         
         # Panel Title (Color matched)
         if use_panel_titles:
@@ -377,22 +391,42 @@ def plot_target(
             # )
 
         # mean line and std patch
-        if xlim:
-            x1, x2 = xlim[0], xlim[1]
-        else:
-            x1, x2 = ax.get_xlim()
-            # x1, x2 = datetime(2022, 1, 1), datetime(2025, 12, 31)
-        y1, y2 = 1 - rms_day * N_SIG, 1 + rms_day * N_SIG
+        x1, x2 = ax.get_xlim()
+        y1, y2 = 1 - rms_day * shade_n_sig, 1 + rms_day * shade_n_sig
         rect = patches.Rectangle((x1, y1), x2 - x1, y2 - y1, alpha=0.1, color=newport.COLORS[band], lw=0, zorder=0)
         ax.add_patch(rect)
         ax.set_xlim(x1, x2)
 
-        # Calculate ylim
-        flux = bin_table['flux']
-        p25, p75 = np.nanpercentile(flux, [25, 75])
-        mid_mask = (flux >= p25) & (flux <= p75)
-        _std_mid = np.nanstd(flux[mid_mask])
-        std_mid = max(std_mid, _std_mid)
+        # Set ylim
+        if n_std_mid:
+            flux = bin_table['flux']
+            p25, p75 = np.nanpercentile(flux, [25, 75])
+            mid_mask = (flux >= p25) & (flux <= p75)
+            _std_mid = np.nanstd(flux[mid_mask])
+            if sharey:
+                std_mid = max(std_mid, _std_mid)
+            else:
+                std_mid = _std_mid
+            ax.set_ylim(1 - n_std_mid * std_mid, 1 + n_std_mid * std_mid)
+        elif ylim_factor:
+            _min_binned = np.nanmin(bin_table['flux'])
+            _max_binned = np.nanmax(bin_table['flux'])
+            if sharey:
+                min_binned = min(min_binned, _min_binned)
+                max_binned = max(max_binned, _max_binned)
+            else:
+                min_binned = _min_binned
+                max_binned = _max_binned
+            _range = max_binned - min_binned
+            ax.set_ylim(
+                min_binned - ylim_factor * _range,
+                max_binned + ylim_factor * _range
+            )
+        else:
+            print(
+                'Neither `n_std_mid` nor `ylim_factor` is provided. '
+                'Y-limit not set.'
+            )
         
         ax.grid(True, 'major', alpha=0.3)
         ax.grid(True, 'minor', alpha=0.1)
@@ -418,9 +452,6 @@ def plot_target(
 
     # # Rotation for bottom row
     # plt.setp(axs[-1].get_xticklabels(), rotation=45, ha='right')
-
-    # Set ylim
-    axs[-1].set_ylim(1 - n_std_mid * std_mid, 1 + n_std_mid * std_mid)
 
     fig.supxlabel("Time of observation", x=0.53, y=0.03)
     fig.supylabel("Relative flux", x=0.025, y=0.5)
@@ -521,13 +552,14 @@ def plot_target(
     plt.close()
 
 
-def plot_target_ppm(base_path, target_name, n_std_mid=12, savefig_path=None, bands=['B', 'V', 'R', 'I']):
+def plot_target_ppm(
+    base_path, target_name, n_std_mid=12, shade_n_sig=1,
+    savefig_path=None, bands=['B', 'V', 'R', 'I']
+):
     """
     Main monitoring plot for the primary science target, 
     plotted in ppm and centered around (max - min) / 2.
     """
-    N_SIG = 1
-
     band_stats_file_content = ''
 
     base_path = Path(base_path)
@@ -629,7 +661,7 @@ def plot_target_ppm(base_path, target_name, n_std_mid=12, savefig_path=None, ban
         # mean line and std patch
         x1, x2 = ax.get_xlim()
         # x1, x2 = datetime(2022, 1, 1), datetime(2025, 12, 31)
-        y1, y2 = 1 - rms_day * N_SIG, 1 + rms_day * N_SIG
+        y1, y2 = 1 - rms_day * shade_n_sig, 1 + rms_day * shade_n_sig
         rect = patches.Rectangle((x1, y1), x2 - x1, y2 - y1, alpha=0.1, color=newport.COLORS[band], lw=0, zorder=0)
         ax.add_patch(rect)
         ax.set_xlim(x1, x2)
@@ -762,11 +794,14 @@ def plot_target_ppm(base_path, target_name, n_std_mid=12, savefig_path=None, ban
 
 
 
-def plot_fold(base_path, target_name, period, t0=0, n_std_mid=10, savefig_path=None, bands=['B', 'V', 'R', 'I'], show=True):
+def plot_fold(
+    base_path, target_name, period, t0=0, n_std_mid=10, 
+    shade_n_sig=1,
+    savefig_path=None, bands=['B', 'V', 'R', 'I'], show=True
+):
     """
     Generates a folded multi-band light curve plot.
     """
-    N_SIG = 1
     base_path = Path(base_path)
 
     wfc3, stis = newport.get_hst(target_name)
@@ -822,7 +857,7 @@ def plot_fold(base_path, target_name, period, t0=0, n_std_mid=10, savefig_path=N
                        label='HST/STIS host star observation')
 
         # # Shaded sigma region
-        # y1, y2 = 1 - rms_day * N_SIG, 1 + rms_day * N_SIG
+        # y1, y2 = 1 - rms_day * shade_n_sig, 1 + rms_day * shade_n_sig
         # rect = patches.Rectangle((0, y1), period, y2 - y1, alpha=0.1, color=newport.COLORS[band], lw=0, zorder=0)
         # ax.add_patch(rect)
 
@@ -963,36 +998,46 @@ def get_comps(phot_table, target_id, criterion=0.8, exclude_ids=None, return_all
         return qualified_comps
 
 
-def load_optimized_json(json_path: str | Path) -> list[str]:
+def load_from_json(json_path: str | Path, key: str | list[str]):
     """
-    Load the best ensemble list from a previous optimization run JSON.
-    
-    Load `forced_comps` first; if not present, load `best_ensemble`.
+    Load data from a JSON file.
 
     Parameters
     ----------
     json_path: (str | Path) – path to the JSON file
+    key: (str | list[str]) – key to load from JSON file, 
+        in descending priority.
     
     Returns
     -------
-    list
-        List of comparison stars
+    list[str]
+        List of comparison stars.
         
     Raises
     -------
     FileNotFoundError
         If `json_path` does not exist
     KeyError
-        If no `forced_comps` or `best_ensemble` found in JSON file
+        If key not found in JSON file
     """
+    if isinstance(key, str):
+        key = [key]
+
     with open(json_path, 'r') as f:
         data = json.load(f)
-    comp_list = data.get('forced_comps', data.get('best_ensemble'))
-    if not comp_list:
-        raise KeyError(
-            f"No `forced_comps` or `best_ensemble` found in {json_path}"
-        )
-    return comp_list
+    
+    result = data.get(key[0], 'MISSING')
+
+    if result == 'MISSING':
+        if len(key) == 1:
+            raise KeyError(
+                f"Key{'s' if len(key) > 1 else ''} `{key}` "
+                f"not found in {json_path}"
+            )
+        else:
+            return load_from_json(json_path, key[1:])
+    
+    return result
 
 
 def run_comp_diagnostics(full_table, target_id, output_dir, json_dir, metric='amplitude', criterion=0.89, bands=['B', 'V', 'R', 'I']):
@@ -1007,9 +1052,9 @@ def run_comp_diagnostics(full_table, target_id, output_dir, json_dir, metric='am
     # 1. Map out which stars were in which ensemble
     band_comps = dict()
     for band in bands:
-        json_path = json_dir / f"opt_ensemble_{band}.json"
+        json_path = json_dir / f"comps_{band}.json"
         if json_path.exists():
-            band_comps[band] = load_optimized_json(json_path)
+            band_comps[band] = load_from_json(json_path, ['forced_comps', 'best_ensemble'])
     total_comps = {cid for ensemble in band_comps.values() for cid in ensemble}
 
     # 2. Iterate and optimize with strict exclusions
@@ -1427,8 +1472,8 @@ if __name__ == "__main__":
     # ### BLOCK: Print out comparison stars for comp diag ###
     # comp_set = set()
     # for band in ['B', 'V', 'R', 'I']:
-    #     json_path = JSON_DIR / f"opt_ensemble_{band}.json"
-    #     comp_set.update(load_optimized_json(json_path))
+    #     json_path = JSON_DIR / f"comps_{band}.json"
+    #     comp_set.update(load_from_json(json_path, ['forced_comps', 'best_ensemble']))
 
     # for cid in comp_set:
     #     print(f"Gaia DR3 {cid}:")
