@@ -15,18 +15,19 @@ from astropy.time import Time
 from pathlib import Path
 from zoneinfo import ZoneInfo
 import newport
-from target_phot import OUTPUT_DIR
+from target_phot import OUTPUT_DIR, TMIN, TMAX
 
 EASTERN = ZoneInfo('US/Eastern')
 
 # ── Configuration ──────────────────────────────────────────────
 BANDS = ['B', 'V', 'R', 'I']
 
-HIGH_STD = 0.08    # Flag night if intraday_std / flux > this in any band
-HIGH_DEVI = 2.5     # Flag night if |flux - 1| > this many sigmas in any band
+HIGH_STD = 0.01  # Flag night if intraday_std / flux > this in any band
+HIGH_DEVI = 2.5  # Flag night if |flux - 1| > this many sigmas in any band
 
-N_COLS = 4        # Number of columns in the bottom grid
-MAX_ROWS = 10      # Maximum rows in the bottom grid (caps at N_COLS * MAX_ROWS nights)
+N_COLS = 4  # Number of columns in the bottom grid
+MAX_ROWS = 10  # Maximum rows in the bottom grid
+# (caps at N_COLS * MAX_ROWS nights)
 
 N_STD_MID = 22
 SAVEFIG_NAME = 'anomalous_nights.pdf'
@@ -90,11 +91,30 @@ if __name__ == '__main__':
     if not bin_tables:
         print("No tables found.")
         exit()
+    
+    for band in BANDS:
+        if TMIN:
+            tmin_jd = Time(TMIN).jd
+            bin_tables[band] = bin_tables[band][
+                bin_tables[band]['jd'] >= tmin_jd
+            ]
+            unbin_tables[band] = unbin_tables[band][
+                unbin_tables[band]['jd'] >= tmin_jd
+            ]
+        if TMAX:
+            tmax_jd = Time(TMAX).jd
+            bin_tables[band] = bin_tables[band][
+                bin_tables[band]['jd'] <= tmax_jd
+            ]
+            unbin_tables[band] = unbin_tables[band][
+                unbin_tables[band]['jd'] <= tmax_jd
+            ]
 
     # ── Find flagged nights ──
     flagged_nights = find_flagged_nights(bin_tables, BANDS, HIGH_STD, HIGH_DEVI)
     n_flagged = len(flagged_nights)
-    print(f"Flagged {n_flagged} nights: {flagged_nights}")
+    print(f'Flagged {n_flagged} nights:')
+    print([str(_) for _ in flagged_nights])
 
     if n_flagged == 0:
         print("No anomalous nights found. Nothing to plot in bottom section.")
@@ -127,22 +147,13 @@ if __name__ == '__main__':
     for i in range(n_top_rows):
         share_x = top_axs[0] if i > 0 else None
         share_y = top_axs[0] if i > 0 else None
-        ax = fig.add_subplot(top_gs[i], sharex=share_x, sharey=share_y)
+        ax = fig.add_subplot(
+            top_gs[i], sharex=share_x,
+            # sharey=share_y
+        )
         top_axs.append(ax)
         if i < n_top_rows - 1:
             plt.setp(ax.get_xticklabels(), visible=False)
-
-    # Calculate global ylim from all bands
-    std_mid = 0
-    for band in BANDS:
-        if band not in bin_tables:
-            continue
-        flux = bin_tables[band]['flux']
-        valid = np.isfinite(flux)
-        p25, p75 = np.nanpercentile(flux[valid], [25, 75])
-        mid_mask = (flux >= p25) & (flux <= p75)
-        _std = np.nanstd(flux[mid_mask]) if np.any(mid_mask) else np.nanstd(flux[valid])
-        std_mid = max(std_mid, _std)
 
     flagged_set = set(flagged_nights)
 
@@ -155,6 +166,13 @@ if __name__ == '__main__':
 
         t_unbin = Time(ut['jd'], format='jd').to_datetime()
         t_bin = Time(bt['jd'], format='jd').to_datetime()
+
+        # Catch ylim
+        ax.errorbar(
+            t_bin, (bt['flux'] - 1) * 1.2 + 1,
+            fmt=newport.MARKERS[band], alpha=0, markeredgewidth=0, ms=7
+        )
+        ylim0, ylim1 = ax.get_ylim()
 
         # Unbinned (faint background)
         if PLOT_UNBINNED:
@@ -208,8 +226,7 @@ if __name__ == '__main__':
         ax.xaxis.set_major_locator(mdates.AutoDateLocator(maxticks=8))
         ax.set_title(f'{band} band', loc='left', x=0.02, y=0.75)
         ax.grid(True, alpha=0.2)
-
-    top_axs[0].set_ylim(1 - N_STD_MID * std_mid, 1 + N_STD_MID * std_mid)
+        ax.set_ylim(ylim0, ylim1)
 
     # # Top legend
     # handles, labels = [], []
@@ -340,7 +357,7 @@ if __name__ == '__main__':
             ax.set_visible(False)
 
     fig.supxlabel("Time of observation", y=0.07)
-    fig.supylabel("Relative flux", x=0.07)
+    fig.supylabel("Normalized flux", x=0.07)
     fig.subplots_adjust(top=0.96)
 
     if SAVEFIG_NAME:

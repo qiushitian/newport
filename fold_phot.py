@@ -50,7 +50,7 @@ if __name__ == "__main__":
             target_name=TARGET,
             period=p,
             t0=T0,
-            # n_std_mid=15,
+            # yrange=15,
             savefig_path=output_path,
             bands=['B', 'V', 'R', 'I'],
             show=False

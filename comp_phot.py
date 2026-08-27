@@ -3,14 +3,14 @@ from astropy import table
 import numpy as np
 import json
 from newport import get_input_path
-from target_phot import TARGET, TARGET_ID, OUTPUT_DIR
 from optimize_rel_phot import phot_comp, plot_comp, load_from_json
+from target_phot import TARGET, TARGET_ID, OUTPUT_DIR, TMIN, TMAX
 
 
 if __name__ == "__main__":
     print(f'Newport comparison star photometry for {TARGET} to {OUTPUT_DIR}')
     
-    comp_diag_dir = OUTPUT_DIR / "comp_diag"
+    comp_diag_dir = OUTPUT_DIR / "comp_diag_tables"
     comp_diag_dir.mkdir(parents=True, exist_ok=True)
 
     # Read json to find all comp stars
@@ -61,7 +61,10 @@ if __name__ == "__main__":
     plot_comp(
         comp_diag_dir, all_comps, used_comps, TARGET,
         # comp_diag_dir, used_comps, used_comps, TARGET,
-        n_std_mid=15, savefig_path=comp_diag_dir / "comp_diagnostics.pdf",
+        yrange=15,
+        tmin=TMIN,
+        tmax=TMAX,
+        savefig_path=OUTPUT_DIR / "comp_diagnostics.pdf",
         bands=comp_phot_bands_avail
     )
     ### END BLOCK ###

@@ -264,7 +264,7 @@ class RelativePhotometryEngine:
 def plot_target(
     base_path,
     target_name,
-    n_std_mid: int | float = None,
+    yrange: int | float | str = None,
     ylim_factor: float = 0.05,
     tmin: datetime = None,
     tmax: datetime = None,
@@ -282,6 +282,31 @@ def plot_target(
 ):
     """
     Generates a multi-band diagnostic plot for the primary science target.
+
+    Args:
+        base_path (Path): Path to the base directory containing data files.
+        target_name (str): Name of the target.
+        yrange (int | float | str): Y-axis range. There are 3 options: 
+            markers only ('default', 'ignorerrorebars', 'ignoreebars', 
+                'ignorerrorebar', 'ignoreebar', 'markersonly', 'markers', 
+                'markeronly', 'marker');
+            include error bars ('full', 'ebar', 'errorbar', 'ebars', 
+                'errorbars');
+            n times std (int or float).
+        ylim_factor (float): Factor to extend the y-axis range.
+        tmin (datetime): Minimum time to display.
+        tmax (datetime): Maximum time to display.
+        x_title (float): Position of the x-title.
+        y_title (float): Position of the y-title.
+        sharey (bool): Whether to share the y-axis.
+        shade_n_sig (int): Number of sigmas to shade.
+        fontsize (int): Font size.
+        fig_width (int): Figure width.
+        fig_height_per_panel (int): Figure height per panel.
+        sp_adj_top (float): Adjustment for the top of the subplot.
+        use_panel_titles (bool): Whether to use panel titles.
+        savefig_path (Path): Path to save the figure.
+        bands (list): List of bands to plot.
     """
     band_stats_file_content = ''
 
@@ -302,6 +327,7 @@ def plot_target(
     color_stis = 'olive'   # Previous: C1
 
     std_mid = 0
+    ylim0, ylim1 = np.nan, np.nan
 
     wfc3_line, stis_line = [], []
     
@@ -342,15 +368,31 @@ def plot_target(
         # Time conversion
         t_unbin = Time(unbin_table['jd'], format='jd').to_datetime()
         t_bin = Time(bin_table['jd'], format='jd').to_datetime()
+
+        # catch ylim
+        if yrange is None or yrange in [
+            'default',
+            'ignorerrorebars', 'ignoreebars', 'ignorerrorebar', 'ignoreebar',
+            'markersonly', 'markers', 'markeronly', 'marker'
+        ]:
+            ax.errorbar(
+                t_bin, (bin_table['flux'] - 1) * 1.2 + 1,
+                fmt=newport.MARKERS[band], alpha=0, markeredgewidth=0, ms=7
+            )
+        elif yrange in ['full', 'ebar', 'errorbar', 'ebars', 'errorbars']:
+            ax.errorbar(
+                t_bin, bin_table['flux'], yerr=bin_table['intraday_std'],
+                fmt=newport.MARKERS[band], alpha=0, markeredgewidth=0, ms=7
+            )
+        _ylim0, _ylim1 = ax.get_ylim()
         
         # Unbinned points in background
         unbin_artist = ax.errorbar(
             t_unbin, unbin_table['flux'], # yerr=unbin_table['error'],
-            fmt='o', color='silver',
-            ms=5.5, alpha=0.2, markeredgewidth=0, ecolor='lightgrey', elinewidth=1,
-            label='Unbinned'
+            fmt='o', color='silver', ms=5.5, alpha=0.2, label='Unbinned',
+            markeredgewidth=0, ecolor='lightgrey', elinewidth=1
         )
-        
+
         # Binned points with error bars
         binned_artist = ax.errorbar(
             t_bin, bin_table['flux'], yerr=bin_table['intraday_std'],
@@ -398,7 +440,7 @@ def plot_target(
         ax.set_xlim(x1, x2)
 
         # Set ylim
-        if n_std_mid:
+        if isinstance(yrange, (int, float)):
             flux = bin_table['flux']
             p25, p75 = np.nanpercentile(flux, [25, 75])
             mid_mask = (flux >= p25) & (flux <= p75)
@@ -407,27 +449,16 @@ def plot_target(
                 std_mid = max(std_mid, _std_mid)
             else:
                 std_mid = _std_mid
-            ax.set_ylim(1 - n_std_mid * std_mid, 1 + n_std_mid * std_mid)
-        elif ylim_factor:
-            _min_binned = np.nanmin(bin_table['flux'])
-            _max_binned = np.nanmax(bin_table['flux'])
-            if sharey:
-                min_binned = min(min_binned, _min_binned)
-                max_binned = max(max_binned, _max_binned)
-            else:
-                min_binned = _min_binned
-                max_binned = _max_binned
-            _range = max_binned - min_binned
-            ax.set_ylim(
-                min_binned - ylim_factor * _range,
-                max_binned + ylim_factor * _range
-            )
+            ax.set_ylim(1 - yrange * std_mid, 1 + yrange * std_mid)
         else:
-            print(
-                'Neither `n_std_mid` nor `ylim_factor` is provided. '
-                'Y-limit not set.'
-            )
-        
+            if sharey:
+                ylim0 = np.nanmin([ylim0, _ylim0])
+                ylim1 = np.nanmax([ylim1, _ylim1])
+            else:
+                ylim0 = _ylim0
+                ylim1 = _ylim1
+            ax.set_ylim(ylim0, ylim1)
+
         ax.grid(True, 'major', alpha=0.3)
         ax.grid(True, 'minor', alpha=0.1)
         ax.tick_params(axis='x', direction='in', which='both', labelsize=10)  # Ticks inside
@@ -453,8 +484,8 @@ def plot_target(
     # # Rotation for bottom row
     # plt.setp(axs[-1].get_xticklabels(), rotation=45, ha='right')
 
-    fig.supxlabel("Time of observation", x=0.53, y=0.03)
-    fig.supylabel("Relative flux", x=0.025, y=0.5)
+    fig.supxlabel("Time of observation", x=0.53, y=0.04)
+    fig.supylabel("Normalized flux", x=0.03, y=0.5)
     
     # # Global Legend matching plot_mag.py style
     # handles, labels = [], []
@@ -553,7 +584,7 @@ def plot_target(
 
 
 def plot_target_ppm(
-    base_path, target_name, n_std_mid=12, shade_n_sig=1,
+    base_path, target_name, yrange=12, shade_n_sig=1,
     savefig_path=None, bands=['B', 'V', 'R', 'I']
 ):
     """
@@ -698,7 +729,7 @@ def plot_target_ppm(
     # plt.setp(axs[-1].get_xticklabels(), rotation=45, ha='right')
 
     # Set ylim
-    axs[-1].set_ylim(- n_std_mid * std_mid, n_std_mid * std_mid)
+    axs[-1].set_ylim(- yrange * std_mid, yrange * std_mid)
 
     fig.supxlabel("Time of observation", x=0.53, y=0.03)
     fig.supylabel(r"$\Delta F$ (ppm)", x=0.025, y=0.5)
@@ -795,7 +826,7 @@ def plot_target_ppm(
 
 
 def plot_fold(
-    base_path, target_name, period, t0=0, n_std_mid=10, 
+    base_path, target_name, period, t0=0, yrange=10, 
     shade_n_sig=1,
     savefig_path=None, bands=['B', 'V', 'R', 'I'], show=True
 ):
@@ -871,7 +902,7 @@ def plot_fold(
         ax.grid(True, alpha=0.2)
         ax.tick_params(axis='both', direction='in', which='both')
 
-    axs[-1].set_ylim(1 - n_std_mid * std_mid, 1 + n_std_mid * std_mid)
+    axs[-1].set_ylim(1 - yrange * std_mid, 1 + yrange * std_mid)
     # axs[-1].set_xlim(0, period)
 
     fig.supxlabel(f"Days from phase zero ($P = {period:.3f}$ d)", x=0.53, y=0.03)
@@ -1111,8 +1142,10 @@ def plot_comp(
     all_comps : set[str],
     used_comps : set[str],
     target_name,
+    yrange=11,
+    tmin=None,
+    tmax=None,
     savefig_path=None,
-    n_std_mid=11,
     bands=['B', 'V', 'R', 'I'],
     plot_hst=False
 ):
@@ -1149,6 +1182,15 @@ def plot_comp(
                 
             bin_table = table.Table.read(bin_path)
             unbin_table = table.Table.read(unbin_path)
+
+            if tmin:
+                tmin_jd = Time(tmin).jd
+                bin_table = bin_table[bin_table['jd'] >= tmin_jd]
+                unbin_table = unbin_table[unbin_table['jd'] >= tmin_jd]
+            if tmax:
+                tmax_jd = Time(tmax).jd
+                bin_table = bin_table[bin_table['jd'] <= tmax_jd]
+                unbin_table = unbin_table[unbin_table['jd'] <= tmax_jd]
             
             # if 'within_3_sig' in bin_table.colnames:
             #     bin_table = bin_table[bin_table['within_3_sig']]
@@ -1202,7 +1244,7 @@ def plot_comp(
                 p25, p75 = np.nanpercentile(valid_flux, [25, 75])
                 mid_mask = (valid_flux >= p25) & (valid_flux <= p75)
                 std_mid = np.nanstd(valid_flux[mid_mask]) if np.any(mid_mask) else np.nanstd(valid_flux)
-                ax.set_ylim(1 - n_std_mid * std_mid, 1 + n_std_mid * std_mid)
+                ax.set_ylim(1 - yrange * std_mid, 1 + yrange * std_mid)
             
             # ax.grid(True, alpha=0.3)
             ax.tick_params(axis='both', direction='in', labelsize=8)
@@ -1465,7 +1507,7 @@ if __name__ == "__main__":
     # ### BLOCK: Plot comp diagnostics ###
     # plot_comp(
     #     COMP_DIAG_DIR, JSON_DIR, TARGET,
-    #     n_std_mid=15, savefig_path=COMP_DIAG_DIR / "comp_diagnostics.pdf"
+    #     yrange=15, savefig_path=COMP_DIAG_DIR / "comp_diagnostics.pdf"
     # )
     # ### END BLOCK ###
 

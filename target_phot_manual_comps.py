@@ -73,6 +73,6 @@ if __name__ == "__main__":
 
     # 5. Multi-band plot from saved tables
     plot_target(
-        read_saved_table_base, TARGET, # n_std_mid=12,
+        read_saved_table_base, TARGET, # yrange=12,
         savefig_path=OUTPUT_DIR / "monitoring.pdf"
     )

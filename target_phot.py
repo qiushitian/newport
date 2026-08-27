@@ -17,7 +17,12 @@ TARGET_ID = TARGET_GAIA_DR3[TARGET]
 OVERWRITE = False
 
 PRINT_COMP = False
+
 RUN_PHOT = False
+RUN_PHOT = True
+
+TMIN = None
+TMAX = datetime(2023, 12, 31)
 
 FORCE_COMP = False
 
@@ -26,8 +31,6 @@ FORCED_COMPS = [
     "1958536599157070592",
     "1958537561228353152",
     "1958561200728431872",
-    "1958582671266686080",
-    "1958586867452688768",
     "1958588860317508224",
     "1958608720246495360"
 ]
@@ -45,10 +48,10 @@ REF_COMPS = [
 if FORCE_COMP:
     CRIT = np.nan
     OUTPUT_DIR = Path(
-        f'data/tables/opt_comp_stars/{TARGET}/c7'
+        f'data/tables/opt_comp_stars/{TARGET}/man_del3_c5'
     )
 else:
-    CRIT = 0.90
+    CRIT = 1
     OUTPUT_DIR = Path(
         f'data/tables/opt_comp_stars/{TARGET}/'
         f'crit{str(CRIT).replace("0.", "")}'
@@ -152,15 +155,16 @@ if __name__ == "__main__":
     plot_target(
         read_saved_table_base,
         TARGET,
-        # n_std_mid=50,  # normally 12
-        # ylim_factor=
-        # xlim=(datetime(2023, 7, 2), datetime(2024, 3, 20)),
-        tmax=datetime(2023, 12, 31),
-        x_title=0.1,
+        # yrange=50,  # normally 12
+        yrange='full',
+        sharey=True,
+        tmin=TMIN,
+        tmax=TMAX,
+        x_title=0.14,
         y_title=0.94,
         fig_width=6,
         fig_height_per_panel=1.3,
         sp_adj_top=0.92,
-        savefig_path=OUTPUT_DIR / f"monitoring_{TARGET}_cut.pdf"
+        savefig_path=OUTPUT_DIR / f"monitoring_{TARGET}_full_sharey.pdf"
     )
     ### END BLOCK ###
