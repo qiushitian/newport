@@ -5,9 +5,7 @@ Photometric pipeline made for the automated 24-inch telescope at Van Vleck Obser
 - Author: Qiushi Chris Tian
 - Updated: 2026-08-17
 
-## Getting Started
-
-### Installing NewPORT
+## Installing NewPORT
 
 The best way to install NewPORT as of now is to clone the repo with Git. Alternatively, you can also download a ZIP of the repo by clicking on the "Code" button on GitHub. 
 
@@ -32,6 +30,17 @@ macOS will prompt that the ASTAP program and the star database installer "cannot
 ## Changelog
 
 Commit [`c24678a`](https://github.com/qiushitian/newport/commit/c24678a3038488c4e17e566a4f2ed11e8410bbf7) is the closest representation of the state of the code at the time of Chris's thesis.
+
+## Quick Start
+
+### Analysis Scripts
+
+- target_phot.py
+- comp_phot.py
+- period_vdp.py
+- inspect_nights.py
+
+optimize_rel_phot.py contains the object-oriented framework for performing relative photometry.
 
 ## Dependencies
 

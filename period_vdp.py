@@ -10,7 +10,7 @@ from astropy.timeseries import LombScargle, LombScargleMultiband
 import astropy.units as u
 from pathlib import Path
 from newport import *
-from target_phot import OUTPUT_DIR, TARGET
+from target_phot import OUTPUT_DIR, TARGET, TMIN, TMAX
 
 # mfg = np.linspace(-0.1, 3.2, 200) / u.d; plt.plot(mfg, _ls.power(mfg)); plt.xscale('linear'); plt.xlabel('freq (day$^{-1}$)'); plt.ylabel('L-S power'); plt.title('Multiband Window Fuction'); plt.show()
 
@@ -28,6 +28,7 @@ FAP = 1  # False alarm probability percentage
 XTICKS = np.array(
     # [12, 15, 20, 30, 40, 50, 100, 400]  # 12 / 14
     [4, 5, 6, 7, 8, 10, 15, 20, 30, 50, 400]
+    # [25, 30, 40, 50, 100, 300]  # 20 to 400
 )
 RANGES = np.array([
     # [5, 6],
@@ -206,7 +207,10 @@ if __name__ == "__main__":
         p_rot_max_vsini = (2 * np.pi * R_STAR * 6.957e5) / (VSINI * 86400)
         print(f"Max P_rot from vsini ({VSINI} km/s, R={R_STAR} R_sun): {p_rot_max_vsini:.2f} days")
 
-    fig, axs = plt.subplots(5, 1, figsize=(4.5, 5), sharex=True, sharey=True)
+    fig, axs = plt.subplots(
+        5, 1, figsize=(4.5, 5), sharex=True, 
+        # sharey=True
+    )
     plt.subplots_adjust(
         left=0.15,
         right=0.95,
@@ -232,6 +236,11 @@ if __name__ == "__main__":
         if not found:
             print(f"Skipping {band} band: bin_results_{band}.fits not found.")
             continue
+
+        if TMIN:
+            binned_table = binned_table[binned_table['jd'] >= Time(TMIN).jd]
+        if TMAX:
+            binned_table = binned_table[binned_table['jd'] <= Time(TMAX).jd]
 
         time = Time(binned_table['jd'], format='jd')
         mask = (time > CUTOFF) & (~np.isnan(binned_table['flux']))
@@ -284,7 +293,7 @@ if __name__ == "__main__":
     axs[4].set_xticklabels(XTICKS)
     axs[4].set_xlim(1.0 / MAX_PERIOD, 1.0 / MIN_PERIOD)
     _ylb, _ylu = axs[4].get_ylim()
-    axs[4].set_ylim(_ylb, _ylu + 0.03)
+    # axs[4].set_ylim(_ylb, _ylu + 0.03)
     axs[4].invert_xaxis()
     fig.supxlabel("Period (days)", y=0.005)
     fig.supylabel("Lomb-Scargle Power", x=0.03)
@@ -297,6 +306,7 @@ if __name__ == "__main__":
     save_fn += f"{TARGET}_{MIN_PERIOD}-{MAX_PERIOD}"
     save_fn += "_window" if SHOW_WINDOW else ""
     save_fn += "_labeled" if len(RANGES) > 0 else ""
+    save_fn += "_cut" if TMIN or TMAX else ""
     save_fn += ".pdf"
     plt.savefig(OUTPUT_DIR / save_fn)
     print(f"Manual high-res periodogram saved to {OUTPUT_DIR / save_fn}")

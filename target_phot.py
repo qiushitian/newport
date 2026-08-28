@@ -165,6 +165,6 @@ if __name__ == "__main__":
         fig_width=6,
         fig_height_per_panel=1.3,
         sp_adj_top=0.92,
-        savefig_path=OUTPUT_DIR / f"monitoring_{TARGET}_full_sharey.pdf"
+        savefig_path=OUTPUT_DIR / f"photometric_monitoring_{TARGET}.pdf"
     )
     ### END BLOCK ###
