@@ -482,7 +482,7 @@ def plot_target(
         band_stats_txt_fn += tmin.strftime("%Y%m%d") if tmin else ''
         band_stats_txt_fn += 'to'
         band_stats_txt_fn += tmax.strftime("%Y%m%d") if tmax else ''
-    band_stats_txt_path = savefig_path.parent / band_stats_txt_fn + '.txt'
+    band_stats_txt_path = savefig_path.parent / (band_stats_txt_fn + '.txt')
     with open(band_stats_txt_path, "w") as file:
         file.write(band_stats_file_content)
     print(f'Band statistics saved to {band_stats_txt_path}')

@@ -11,7 +11,7 @@ plt.rcParams["font.family"] = "serif"
 # plt.rcParams["font.serif"] = ["serif"]
 
 
-TARGET = "TOI-1410"
+TARGET = 'TOI-431'
 TARGET_ID = TARGET_GAIA_DR3[TARGET]
 
 OVERWRITE = False
@@ -19,31 +19,31 @@ OVERWRITE = False
 PRINT_COMP = False
 
 RUN_PHOT = False
-RUN_PHOT = True
+# RUN_PHOT = True
 
 TMIN = None
-TMAX = datetime(2023, 12, 31)
+TMAX = datetime(2024, 4, 15)
 
 FORCE_COMP = False
 
-FORCE_COMP = True
-FORCED_COMPS = [
-    "1958536599157070592",
-    "1958537561228353152",
-    "1958561200728431872",
-    "1958588860317508224",
-    "1958608720246495360"
-]
-REF_COMPS = [
-    "1958536599157070592",
-    "1958537561228353152",
-    "1958561200728431872",
-    "1958582671266686080",
-    "1958583603279110528",
-    "1958586867452688768",
-    "1958588860317508224",
-    "1958608720246495360"
-]
+# FORCE_COMP = True
+# FORCED_COMPS = [
+#     "1958536599157070592",
+#     "1958537561228353152",
+#     "1958561200728431872",
+#     "1958588860317508224",
+#     "1958608720246495360"
+# ]
+# REF_COMPS = [
+#     "1958536599157070592",
+#     "1958537561228353152",
+#     "1958561200728431872",
+#     "1958582671266686080",
+#     "1958583603279110528",
+#     "1958586867452688768",
+#     "1958588860317508224",
+#     "1958608720246495360"
+# ]
 
 if FORCE_COMP:
     CRIT = np.nan
@@ -51,7 +51,7 @@ if FORCE_COMP:
         f'data/tables/opt_comp_stars/{TARGET}/man_del3_c5'
     )
 else:
-    CRIT = 1
+    CRIT = 0.9
     OUTPUT_DIR = Path(
         f'data/tables/opt_comp_stars/{TARGET}/'
         f'crit{str(CRIT).replace("0.", "")}'
