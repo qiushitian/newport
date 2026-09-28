@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """
-Big Plot: Two-section diagnostic figure for examining anomalous nights.
+Two-section diagnostic figure for examining anomalous nights.
 
 Top section:  4 stacked BVRI panels (no vertical gaps) with full light curve.
 Bottom section: 6-column grid of zoomed-in panels for flagged nights.
+
+Original name: Big Plot
+
+Author: Qiushi Chris Tian
+Last updated: 2026-09-28 (add JUPYTER)
 """
 
 import numpy as np
@@ -22,18 +27,19 @@ EASTERN = ZoneInfo('US/Eastern')
 # ── Configuration ──────────────────────────────────────────────
 BANDS = ['B', 'V', 'R', 'I']
 
-HIGH_STD = 0.01  # Flag night if intraday_std / flux > this in any band
+HIGH_STD = 0.1  # Flag night if intraday_std / flux > this in any band
 HIGH_DEVI = 2.5  # Flag night if |flux - 1| > this many sigmas in any band
 
 N_COLS = 4  # Number of columns in the bottom grid
 MAX_ROWS = 10  # Maximum rows in the bottom grid
 # (caps at N_COLS * MAX_ROWS nights)
 
-N_STD_MID = 22
-SAVEFIG_NAME = 'anomalous_nights.pdf'
+SAVEFIG_NAME = None  # 'anomalous_nights.pdf'
 
 PLOT_UNBINNED = False
 PLOT_AIRMASS = False  # Show airmass on twin y-axis in bottom panels
+
+JUPYTER = True  # Make compatible to run from a Jupyter Lab/Notebook cell
 
 
 def load_tables(read_dir, bands):
@@ -365,5 +371,6 @@ if __name__ == '__main__':
         plt.savefig(savefig_path, bbox_inches='tight')
         print(f"Saved to {savefig_path}")
 
-    # plt.show()
-    plt.close(fig)
+    if not JUPYTER:
+        plt.show()
+        plt.close(fig)

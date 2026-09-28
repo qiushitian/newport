@@ -474,18 +474,6 @@ def plot_target(
         # rms_intra = bin_table.meta.get('RMS_INTRA', 0)
         # ax.set_title(f"Daily RMS: {rms_day:.6f} | Intraday RMS: {rms_intra:.6f}", fontsize=10)
         # ax.legend(loc='upper right', fontsize=8)
-    
-    # Save band statistics text file
-    band_stats_txt_fn = "band_stats"
-    if tmin or tmax:
-        band_stats_txt_fn += '-'
-        band_stats_txt_fn += tmin.strftime("%Y%m%d") if tmin else ''
-        band_stats_txt_fn += 'to'
-        band_stats_txt_fn += tmax.strftime("%Y%m%d") if tmax else ''
-    band_stats_txt_path = savefig_path.parent / (band_stats_txt_fn + '.txt')
-    with open(band_stats_txt_path, "w") as file:
-        file.write(band_stats_file_content)
-    print(f'Band statistics saved to {band_stats_txt_path}')
 
     # # Rotation for bottom row
     # plt.setp(axs[-1].get_xticklabels(), rotation=45, ha='right')
@@ -583,10 +571,26 @@ def plot_target(
     fig.subplots_adjust(top=sp_adj_top)  # Make room for dual legends
     
     if savefig_path:
+        # Save band statistics text file
+        band_stats_txt_fn = "band_stats"
+        if tmin or tmax:
+            band_stats_txt_fn += '-'
+            band_stats_txt_fn += tmin.strftime("%Y%m%d") if tmin else ''
+            band_stats_txt_fn += 'to'
+            band_stats_txt_fn += tmax.strftime("%Y%m%d") if tmax else ''
+        band_stats_txt_path = savefig_path.parent / (band_stats_txt_fn + '.txt')
+        with open(band_stats_txt_path, "w") as file:
+            file.write(band_stats_file_content)
+        print(f'Band statistics saved to {band_stats_txt_path}')
+
+        # Save plot
         plt.savefig(savefig_path, bbox_inches='tight') # TODO verify if bbox tight is needed
         print(f"Target plot saved to {savefig_path}")
+
     plt.show()
-    plt.close()
+
+    if savefig_path:
+        plt.close()
 
 
 def plot_target_ppm(
