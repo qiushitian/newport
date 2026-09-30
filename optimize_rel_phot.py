@@ -370,26 +370,29 @@ def plot_target(
         t_bin = Time(bin_table['jd'], format='jd').to_datetime()
 
         # catch ylim
-        if yrange is None or yrange in [
-            'default',
-            'ignorerrorebars', 'ignoreebars', 'ignorerrorebar', 'ignoreebar',
-            'markersonly', 'markers', 'markeronly', 'marker'
-        ]:
-            ax.errorbar(
-                t_bin, (bin_table['flux'] - 1) * 1.2 + 1,
-                fmt=newport.MARKERS[band], alpha=0, markeredgewidth=0, ms=7
-            )
-        elif yrange in ['full', 'ebar', 'errorbar', 'ebars', 'errorbars']:
-            ax.errorbar(
-                t_bin, bin_table['flux'], yerr=bin_table['intraday_std'],
-                fmt=newport.MARKERS[band], alpha=0, markeredgewidth=0, ms=7
-            )
-        _ylim0, _ylim1 = ax.get_ylim()
+        if not isinstance(yrange, (int, float)):
+            fake_fig, fake_ax = plt.subplots()
+            if yrange is None or yrange in [
+                'default',
+                'ignorerrorebars', 'ignoreebars', 'ignorerrorebar', 'ignoreebar',
+                'markersonly', 'markers', 'markeronly', 'marker'
+            ]:
+                fake_ax.errorbar(
+                    t_bin, (bin_table['flux'] - 1) * 1.2 + 1,
+                    fmt=newport.MARKERS[band], markeredgewidth=0, ms=7, capsize=6
+                )
+            elif yrange in ['full', 'ebar', 'errorbar', 'ebars', 'errorbars']:
+                fake_ax.errorbar(
+                    t_bin, bin_table['flux'], yerr=bin_table['intraday_std'],
+                    fmt=newport.MARKERS[band], markeredgewidth=0, ms=7, capsize=6
+                )
+            _ylim0, _ylim1 = fake_ax.get_ylim()
+            plt.close(fake_fig)
         
         # Unbinned points in background
         unbin_artist = ax.errorbar(
             t_unbin, unbin_table['flux'], # yerr=unbin_table['error'],
-            fmt='o', color='silver', ms=5.5, alpha=0.2, label='Unbinned',
+            fmt='o', color='silver', ms=5, alpha=0.25, label='Unbinned',
             markeredgewidth=0, ecolor='lightgrey', elinewidth=1
         )
 
@@ -397,8 +400,8 @@ def plot_target(
         binned_artist = ax.errorbar(
             t_bin, bin_table['flux'], yerr=bin_table['intraday_std'],
             fmt=newport.MARKERS[band], color=newport.COLORS[band],
-            alpha=0.7, markeredgewidth=0,
-            ms=7, capsize=6, label=f'{band} band'
+            ms=6.5, alpha=0.7, markeredgewidth=0,
+            capsize=2, capthick=1.5, label=f'{band} band'
         )
 
         # Plot HST

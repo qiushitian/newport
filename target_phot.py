@@ -11,10 +11,10 @@ plt.rcParams["font.family"] = "serif"
 # plt.rcParams["font.serif"] = ["serif"]
 
 
-TARGET = 'TOI-431'
+TARGET = 'TOI-1410'
 TARGET_ID = TARGET_GAIA_DR3[TARGET]
 
-OVERWRITE = False
+OVERWRITE = True # False
 
 PRINT_COMP = False
 
@@ -23,32 +23,42 @@ RUN_PHOT = False
 
 TMIN = None
 TMAX = datetime(2024, 4, 15)
+TMAX = datetime(2023, 12, 31)
 
 FORCE_COMP = False
 
-# FORCE_COMP = True
-# FORCED_COMPS = [
-#     "1958536599157070592",
-#     "1958537561228353152",
-#     "1958561200728431872",
-#     "1958588860317508224",
-#     "1958608720246495360"
-# ]
-# REF_COMPS = [
-#     "1958536599157070592",
-#     "1958537561228353152",
-#     "1958561200728431872",
-#     "1958582671266686080",
-#     "1958583603279110528",
-#     "1958586867452688768",
-#     "1958588860317508224",
-#     "1958608720246495360"
-# ]
+FORCE_COMP = True
+FORCED_COMPS = [
+    "1958536599157070592",
+    "1958537561228353152",
+    "1958561200728431872",
+    "1958588860317508224",
+    "1958608720246495360"
+
+    # "1958536599157070592",
+    # "1958537561228353152",
+    # "1958561200728431872",
+    # "1958582671266686080",
+    # "1958583603279110528",
+    # "1958586867452688768",
+    # "1958588860317508224",
+    # "1958608720246495360"
+]
+REF_COMPS = [
+    "1958536599157070592",
+    "1958537561228353152",
+    "1958561200728431872",
+    "1958582671266686080",
+    "1958583603279110528",
+    "1958586867452688768",
+    "1958588860317508224",
+    "1958608720246495360"
+]
 
 if FORCE_COMP:
     CRIT = np.nan
     OUTPUT_DIR = Path(
-        f'data/tables/opt_comp_stars/{TARGET}/man_del3_c5'
+        f'data/tables/opt_comp_stars/{TARGET}/20261001T0100_del2_c8'
     )
 else:
     CRIT = 0.9
@@ -162,8 +172,8 @@ if __name__ == "__main__":
         tmax=TMAX,
         x_title=0.14,
         y_title=0.94,
-        fig_width=6,
-        fig_height_per_panel=1.3,
+        fig_width=6 * 0.95,
+        fig_height_per_panel=1.3 * 0.95,
         sp_adj_top=0.92,
         savefig_path=OUTPUT_DIR / f"photometric_monitoring_{TARGET}.pdf"
     )

@@ -28,18 +28,18 @@ EASTERN = ZoneInfo('US/Eastern')
 BANDS = ['B', 'V', 'R', 'I']
 
 HIGH_STD = 0.1  # Flag night if intraday_std / flux > this in any band
-HIGH_DEVI = 2.5  # Flag night if |flux - 1| > this many sigmas in any band
+HIGH_DEVI = 2  # Flag night if |flux - 1| > this many sigmas in any band
 
 N_COLS = 4  # Number of columns in the bottom grid
 MAX_ROWS = 10  # Maximum rows in the bottom grid
 # (caps at N_COLS * MAX_ROWS nights)
 
-SAVEFIG_NAME = None  # 'anomalous_nights.pdf'
+SAVEFIG_NAME = 'anomalous_nights.pdf'
 
 PLOT_UNBINNED = False
 PLOT_AIRMASS = False  # Show airmass on twin y-axis in bottom panels
 
-JUPYTER = True  # Make compatible to run from a Jupyter Lab/Notebook cell
+JUPYTER = False  # Make compatible to run from a Jupyter Lab/Notebook cell
 
 
 def load_tables(read_dir, bands):
