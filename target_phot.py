@@ -19,30 +19,41 @@ OVERWRITE = True # False
 PRINT_COMP = False
 
 RUN_PHOT = False
-# RUN_PHOT = True
+RUN_PHOT = True
 
 TMIN = None
 TMAX = datetime(2024, 4, 15)
 TMAX = datetime(2023, 12, 31)
 
+EXPTIME = 'mode'
+
 FORCE_COMP = False
 
 FORCE_COMP = True
 FORCED_COMPS = [
-    "1958536599157070592",
-    "1958537561228353152",
-    "1958561200728431872",
-    "1958588860317508224",
-    "1958608720246495360"
-
     # "1958536599157070592",
     # "1958537561228353152",
     # "1958561200728431872",
-    # "1958582671266686080",
-    # "1958583603279110528",
-    # "1958586867452688768",
     # "1958588860317508224",
     # "1958608720246495360"
+
+    # # "1958536599157070592",
+    # "1958537561228353152",
+    # # "1958561200728431872",
+    # # "1958582671266686080",
+    # "1958583603279110528",
+    # # "1958586867452688768",
+    # "1958588860317508224",
+    # # "1958608720246495360"
+
+    "1958536599157070592",
+    "1958537561228353152",
+    "1958561200728431872",
+    "1958582671266686080",
+    "1958583603279110528",
+    "1958586867452688768",
+    "1958588860317508224",
+    "1958608720246495360"
 ]
 REF_COMPS = [
     "1958536599157070592",
@@ -58,7 +69,7 @@ REF_COMPS = [
 if FORCE_COMP:
     CRIT = np.nan
     OUTPUT_DIR = Path(
-        f'data/tables/opt_comp_stars/{TARGET}/20261001T0100_del2_c8'
+        f'data/tables/opt_comp_stars/{TARGET}/20261002T0115_mode_c8'
     )
 else:
     CRIT = 0.9
@@ -82,12 +93,16 @@ if __name__ == "__main__":
         comp_set = set()
         for band in ['B', 'V', 'R', 'I']:
             json_path = OUTPUT_DIR / f"comps_{band}.json"
-            comp_set.update(load_from_json(json_path, ['forced_comps', 'best_ensemble']))
+            comp_set.update(
+                load_from_json(json_path, ['forced_comps', 'best_ensemble'])
+            )
 
         for cid in comp_set:
             print(f"Gaia DR3 {cid}:")
             for band in ['B', 'V', 'R', 'I']:
-                t = table.Table.read(COMP_DIAG_DIR / f"bin_diag_{cid}_{band}.fits")
+                t = table.Table.read(
+                    COMP_DIAG_DIR / f"bin_diag_{cid}_{band}.fits"
+                )
                 e = t.meta['COMPIDS']
                 print(f"  {band}: {e}")
     ### END BLOCK ###
@@ -119,13 +134,21 @@ if __name__ == "__main__":
                 )
             
             # 2. Save results (includes binned/unbinned + metadata)
-            engine = RelativePhotometryEngine(band_table, TARGET_ID)
+            engine = RelativePhotometryEngine(
+                band_table, TARGET_ID, exptime=EXPTIME
+            )
             output_fn_base = OUTPUT_DIR / f"results_{band}"
-            engine.save(best_ensemble, output_fn_base, sig_clip=3, overwrite=OVERWRITE)
+            engine.save(
+                best_ensemble, output_fn_base, sig_clip=3, overwrite=OVERWRITE
+            )
             
             # Collect for stacking
-            bin_t = table.Table.read(OUTPUT_DIR / f"bin_results_{band}.fits")
-            unbin_t = table.Table.read(OUTPUT_DIR / f"unbin_results_{band}.fits")
+            bin_t = table.Table.read(
+                OUTPUT_DIR / f"bin_results_{band}.fits"
+            )
+            unbin_t = table.Table.read(
+                OUTPUT_DIR / f"unbin_results_{band}.fits"
+            )
             bin_t['band'] = band
             unbin_t['band'] = band
             all_binned.append(bin_t)
@@ -157,9 +180,16 @@ if __name__ == "__main__":
 
         # 4. Save consolidated tables
         if all_binned:
-            table.vstack(all_binned).write(OUTPUT_DIR / "bin_results_all.fits", overwrite=OVERWRITE)
-            table.vstack(all_unbinned).write(OUTPUT_DIR / "unbin_results_all.fits", overwrite=OVERWRITE)
-            print(f"\nConsolidated results saved to {OUTPUT_DIR}/[bin|unbin]_results_all.fits")
+            table.vstack(all_binned).write(
+                OUTPUT_DIR / "bin_results_all.fits", overwrite=OVERWRITE
+            )
+            table.vstack(all_unbinned).write(
+                OUTPUT_DIR / "unbin_results_all.fits", overwrite=OVERWRITE
+            )
+            print(
+                "\nConsolidated results saved to "
+                f"{OUTPUT_DIR}/[bin|unbin]_results_all.fits"
+            )
 
     # 5. Multi-band plot from saved tables
     plot_target(

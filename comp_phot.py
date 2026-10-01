@@ -4,7 +4,7 @@ import numpy as np
 import json
 from newport import get_input_path
 from optimize_rel_phot import phot_comp, plot_comp, load_from_json
-from target_phot import TARGET, TARGET_ID, OUTPUT_DIR, TMIN, TMAX
+from target_phot import TARGET, TARGET_ID, OUTPUT_DIR, TMIN, TMAX, EXPTIME
 
 
 if __name__ == "__main__":
@@ -51,8 +51,8 @@ if __name__ == "__main__":
 
     ### BLOCK: Run comp diagnostics ###
     phot_comp(
-        comp_phot_full_table, TARGET_ID, all_comps, comp_diag_dir,
-        # comp_phot_full_table, TARGET_ID, used_comps, comp_diag_dir,
+        comp_phot_full_table, TARGET_ID, all_comps, comp_diag_dir, EXPTIME,
+        # comp_phot_full_table, TARGET_ID, used_comps, comp_diag_dir, EXPTIME,
         bands=comp_phot_bands_avail
     )
     ### END BLOCK ###

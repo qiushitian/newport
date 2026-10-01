@@ -6,6 +6,7 @@ Performs exhaustive search for the optimal comparison star ensemble.
 import numpy as np
 import itertools
 import json
+import statistics
 from pathlib import Path
 from tqdm import tqdm
 from datetime import datetime
@@ -24,15 +25,41 @@ from dep import va
 
 
 class RelativePhotometryEngine:
-    def __init__(self, input_table, target_id):
+    def __init__(self, input_table, target_id, exptime=None):
+        """
+        Args:
+            input_table: Astropy Table containing the photometric data.
+                         Must include columns: target_id, err_target_id, night, jd, airmass.
+            target_id: Identifier for the target star.
+            exptime: If an int, use only data with that exposure time. 
+                     If 'mode', use the mode of exptime. 
+                     If None, use all.
+        """
+        self.target_id = str(target_id)
+
         # Standardize table: ensure it's not masked and fills gaps with NaNs
         # TODO maybe we just make sure phot_[gaia|list]_run never produces MaskedColumn
         if input_table.has_masked_columns:
             self.table = input_table.filled(np.nan)
         else:
             self.table = input_table.copy()
-        
-        self.target_id = str(target_id)
+
+        if exptime is None:
+            pass
+        elif isinstance(exptime, (int, float)):
+            self.table = self.table[self.table['exptime'] == exptime]
+        elif exptime == 'mode':
+            try:
+                mode_exptime = statistics.mode(self.table['exptime'])
+                self.table = self.table[self.table['exptime'] == mode_exptime]
+            except statistics.StatisticsError as e:
+                raise ValueError(f"Could not determine mode exptime: {e}")
+        else:
+            try:
+                exptime = float(exptime)
+                self.table = self.table[self.table['exptime'] == exptime]
+            except (TypeError, ValueError):
+                raise ValueError(f"Invalid exptime: {exptime}")
         
     def _rel_phot(self, f_t, e_t, f_e, v_e):
         """Internal math for relative flux and error propagation."""
@@ -260,6 +287,7 @@ class RelativePhotometryEngine:
         # 5. Save
         bin_table.write(bin_path, overwrite=True)
         unbin_table.write(unbin_path, overwrite=True)
+
 
 def plot_target(
     base_path,
@@ -1128,6 +1156,7 @@ def phot_comp(
     target_id,
     comp_ids : set[str],
     output_dir,
+    exptime,
     sig_clip=3,
     overwrite=True,
     bands=['B', 'V', 'R', 'I']
@@ -1145,9 +1174,14 @@ def phot_comp(
         band_table = full_table[full_table['band'] == band]
         
         for cid in tqdm(comp_ids):
-            engine = RelativePhotometryEngine(band_table, cid)
+            engine = RelativePhotometryEngine(
+                band_table, cid, exptime=exptime
+            )
             output_prefix = output_dir / f"comp_{cid}_{band}"
-            engine.save(comp_ids - {cid}, output_prefix, overwrite=overwrite, sig_clip=sig_clip)
+            engine.save(
+                comp_ids - {cid}, output_prefix,
+                overwrite=overwrite, sig_clip=sig_clip
+            )
 
 
 def plot_comp(
