@@ -1,6 +1,7 @@
 # NewPORT ignore items
 **/.DS_Store
 data
+dev
 
 # Below are adapted from the GitHub Python `.gitignore` template
 # https://github.com/github/gitignore/blob/main/Python.gitignore

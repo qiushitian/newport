@@ -183,7 +183,8 @@ INPUT_PATHS = {
     'HD_191939': Path('data/tables/opt_comp_stars/HD_191939/phot_w_err_HD_191939_ss.fits'),
     'TOI-1201': Path('data/tables/list_runs/TOI-1201/phot_list_run/phot_w_err_TOI-1201.fits'),  # was phot_gaia_run_on61outof88
     'TOI-561': Path('data/tables/list_runs/TOI-561/phot_list_run_111outof164_manually_stiched/phot_w_err_TOI-561.fits'),
-    'TOI-431': Path('data/tables/list_runs/TOI-431/phot_list_run/phot_w_err_TOI-431.fits'),
+    # 'TOI-431': Path('data/tables/list_runs/TOI-431/phot_list_run/phot_w_err_TOI-431.fits'),
+    'TOI-431': Path('data/tables/opt_comp_stars/TOI-431/phot_w_err_TOI-431_manual_del.fits'),
     # 'TOI-1410': Path('data/tables/list_runs/TOI-1410/phot_gaia_run/phot_w_err_TOI-1410.fits'),
     'TOI-1410': Path('data/tables/opt_comp_stars/TOI-1410/phot_w_err_TOI-1410_manual_del_2.fits'),
     'TOI-178': Path('data/tables/list_runs/TOI-178/phot_gaia_run/phot_w_err_TOI-178.fits'),
