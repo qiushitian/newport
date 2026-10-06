@@ -31,6 +31,7 @@ from astroquery.utils.tap.core import TapPlus
 import concurrent.futures
 import newport
 from datetime import datetime
+import warnings
 
 
 APER_SIZE_FACTOR = 1.4
@@ -57,7 +58,7 @@ if __name__ == "__main__":
         '/Volumes/emlaf/westep-transfer/mountpoint/space-raw/'
         f'{target.replace("_", " ").replace("-", " ")}'
     )
-    WRITE_PATH = Path(f'data/tables/opt_comp_stars/{target}')
+    WRITE_PATH = Path('.')
     WRITE_PATH.mkdir(parents=True, exist_ok=True)
 
     save_path = WRITE_PATH / f'phot_gaia_run_rel_{target}.fits'
@@ -119,6 +120,12 @@ if __name__ == "__main__":
 
     # aper_size skip count
     aper_size_skip_count = 0
+
+    warnings.filterwarnings(
+        action="ignore", 
+        message=r"^divide by zero encountered in (divide|scalar divide)", 
+        category=RuntimeWarning
+    )
 
     for date_path in tqdm(date_list, desc='phot run'):
     # for date_path in date_list:  # no tqdm
@@ -184,7 +191,9 @@ if __name__ == "__main__":
                     hdu = hdul[0]
                     data = CCDData(
                         hdu.data, unit='adu', wcs=wcs, meta=hdu.header,
-                        uncertainty=StdDevUncertainty(error_func(hdu.data), unit='adu')
+                        uncertainty=StdDevUncertainty(
+                            newport.error_func(hdu.data), unit='adu'
+                        )
                     )
 
                     # print(f'Bias\t{date}\t{file.name}')
@@ -229,7 +238,10 @@ if __name__ == "__main__":
                     # setting aperture size with parallelization
                     aper_size = 2
                     with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
-                        future = executor.submit(get_fwhm_nanmin, raw_aperstats[~invalid_aper])
+                        future = executor.submit(
+                            newport.get_fwhm_nanmin,
+                            raw_aperstats[~invalid_aper]
+                        )
                         try:
                             aper_size = future.result(timeout=NANMIN_MAX_TIME)
                         except concurrent.futures.TimeoutError:
@@ -243,7 +255,12 @@ if __name__ == "__main__":
                     aper_size = aper_size.to(u.pixel).value
                     aper_size = 2 if aper_size < 2 else aper_size
                     aper_size *= APER_SIZE_FACTOR
-                    print(f'aper_size = {aper_size}')  # TODO DEV
+
+                    # TODO DEV
+                    # Note: this line breaks progress bar,
+                    # and aper size info isn't that helpful,
+                    # so maybe don't use it
+                    # print(f'aper_size = {aper_size}')
 
                     # get background
                     sigclip = SigmaClip(sigma=3.0, maxiters=10)
