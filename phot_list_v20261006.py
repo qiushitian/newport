@@ -27,6 +27,8 @@ import ccdproc
 from astropy.nddata import CCDData, StdDevUncertainty
 import concurrent.futures
 import warnings
+import os
+from datetime import datetime
 
 
 FIELD = 'TOI-431'
@@ -38,7 +40,7 @@ BANDS = ['B', 'V', 'R', 'I']
 
 SCI_PATH = Path(
     '/Volumes/emlaf/westep-transfer/mountpoint/space-raw/'
-    f'{target.replace("_", " ").replace("-", " ")}'
+    f'{FIELD.replace("_", " ").replace("-", " ")}'
 )
 CALIB_PATH = Path('/Volumes/emlaf/westep-transfer/mastercalib-2025-no_flat')
 WRITE_PATH = Path('.')
@@ -65,7 +67,7 @@ def get_fwhm_nanmin(aperture_stats: ApertureStats):
 
 
 if __name__ == '__main__':
-    save_path = WRITE_PATH / f'phot_list_v20261006_{target}.fits'
+    save_path = WRITE_PATH / f'phot_list_v20261006_{FIELD}.fits'
     if save_path.exists():
         raise FileExistsError(
             f'{save_path} already exists. '
