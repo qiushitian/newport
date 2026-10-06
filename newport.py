@@ -116,17 +116,18 @@ COMPARISON_STAR = {
         'R': ['2216393069673870592', '2216413543776087808']  # '2216368566879908608' is a lp variable
     },
     'TOI-431': {
-        'B': [
-            '2908637241099225600', '2908637172379753856', #'2908681049765615616', '2908663491939308416',
-            # '2908676205042514688', '2908638959086136192', '2908658715935682176', '2908659506207715584',
-            # '2908681874399329280'
-        ],
-        'V': [
-            '2908637241099225600', '2908637172379753856', #'2908681049765615616', '2908663491939308416',
-            # '2908676205042514688', '2908638959086136192', '2908658715935682176', '2908659506207715584'
-        ],
-        'R': ['2908637241099225600', '2908681874399329280'],  # , '2908669156998939264'
-        # 'I': ['2908669156998939264']
+        # 'B': [
+        #     '2908637241099225600', '2908637172379753856', #'2908681049765615616', '2908663491939308416',
+        #     # '2908676205042514688', '2908638959086136192', '2908658715935682176', '2908659506207715584',
+        #     # '2908681874399329280'
+        # ],
+        # 'V': [
+        #     '2908637241099225600', '2908637172379753856', #'2908681049765615616', '2908663491939308416',
+        #     # '2908676205042514688', '2908638959086136192', '2908658715935682176', '2908659506207715584'
+        # ],
+        # 'R': ['2908637241099225600', '2908681874399329280'],  # , '2908669156998939264'
+        # # 'I': ['2908669156998939264']
+        'B': ['2908663491939308416']  # emergency run 20261006
     },
     'TOI-561': {
         'B': ['3850423268738291072', '3850420657398178176', '3850424406904271488', '3850405298595129856',
@@ -219,9 +220,9 @@ def get_input_path(target):
 
 
 def get_comparison_star_list(target, band):
-    target_comp_star_exc_dictt = COMPARISON_STAR.get(target)
-    if target_comp_star_exc_dictt:
-        comp_star_list = target_comp_star_exc_dictt.get(band)
+    target_comp_star_exc_dict = COMPARISON_STAR.get(target)
+    if target_comp_star_exc_dict:
+        comp_star_list = target_comp_star_exc_dict.get(band)
         if comp_star_list:
             return comp_star_list
     return []
@@ -380,7 +381,7 @@ def get_hst(target: str, url=None, future=False):
 #     """
 #     Process StSci HST GO 17192 XML status
 #
-#     :return: time at which XML is fetched, exc_dictt of past visits, exc_dictt of future visits
+#     :return: time at which XML is fetched, exc_dict of past visits, exc_dict of future visits
 #     """
 #     archived = {}
 #     future = {}
@@ -467,8 +468,8 @@ def get_hst(target: str, url=None, future=False):
 #     return report_time, archived, future
 #
 #
-# def plot_hst(id, exc_dictt, ax, c):
-#     times = np.array(exc_dictt.get(id.replace(' ', '-')))
+# def plot_hst(id, exc_dict, ax, c):
+#     times = np.array(exc_dict.get(id.replace(' ', '-')))
 #     if len(times.shape) > 1:
 #         for s, e in times:
 #             mid = s + (e - s) / 2
