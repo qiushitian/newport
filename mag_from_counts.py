@@ -107,7 +107,7 @@ if __name__ == '__main__':
                 print(f'{fn}\t{band}\t skipped')
                 continue
 
-            comp_star_list = newport.get_comparison_star_list(fn, band)
+            comp_star_list = newport.get_comp_star_list(fn, band)
 
             phot_table = table.hstack(
                 [phot_table[phot_table.colnames[: N_COL_HEAD]], phot_table[comp_star_list + [phot_target]]]

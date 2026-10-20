@@ -106,7 +106,7 @@ DATES_EXCLUDE_INT = [20230315,
 def error_func(data, gain=1.85):
     # return np.sqrt(data)
     # return np.sqrt(data / gain)
-    return calc_total_error(data.astype(float), 0, gain)
+    return calc_total_error(data.astype(float), np.zeros_like(data), gain)
 
 
 def get_fwhm_nanmin(aperture_stats: ApertureStats):
@@ -117,8 +117,7 @@ if __name__ == '__main__':
     comp_star_all_bands = set()
     comp_star_all_bands.add(newport.TARGET_GAIA_DR3[FIELD])
     for band in ['B', 'V', 'R', 'I']:
-        for star in newport.get_comparison_star_list(FIELD, band):
-            comp_star_all_bands.add(star)
+        comp_star_all_bands.update(newport.get_comp_star_list(FIELD, band))
 
     Gaia.MAIN_GAIA_TABLE = "gaiadr3.gaia_source"
 
@@ -138,12 +137,12 @@ if __name__ == '__main__':
         dtype=('S', 'i', 'S', 'f8', 'f8', 'f8', 'f8')
     )
 
-    for source_id in gaia_table['SOURCE_ID']:
+    for source_id in gaia_table['source_id']:
         phot_table[str(source_id)] = [None] * len(phot_table)
 
     err_table = phot_table.copy()
 
-    for source_id in gaia_table['SOURCE_ID']:
+    for source_id in gaia_table['source_id']:
         phot_table['err_' + str(source_id)] = [None] * len(phot_table)
 
     # pixel_table = phot_table.copy()

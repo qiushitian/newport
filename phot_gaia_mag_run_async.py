@@ -155,7 +155,7 @@ if __name__ == "__main__":
     #     True, False])  # TODO DEV
     for i, row in enumerate(tqdm(gaia_table, desc='Checking mags')):
         one_mag_table = SIMBAD_TAP.launch_job(
-            f"SELECT B,V,R,I FROM allfluxes JOIN ident USING(oidref) WHERE id = 'Gaia DR3 {row['SOURCE_ID']}';"
+            f"SELECT B,V,R,I FROM allfluxes JOIN ident USING(oidref) WHERE id = 'Gaia DR3 {row['source_id']}';"
         ).get_results()
         if len(one_mag_table) > 0:
             mask_gaia_table[i] = True
@@ -176,12 +176,12 @@ if __name__ == "__main__":
 
     phot_table = QTable(names=('band', 'night', 'time', 'jd', 'airmass', 'exptime'),
                         dtype=('S', 'i', 'S', 'f8', 'f8', 'f2'))
-    for source_id in gaia_table['SOURCE_ID']:
+    for source_id in gaia_table['source_id']:
         phot_table[str(source_id)] = [None] * len(phot_table)
 
     err_table = phot_table.copy()
 
-    for source_id in gaia_table['SOURCE_ID']:
+    for source_id in gaia_table['source_id']:
         phot_table['err_' + str(source_id)] = [None] * len(phot_table)
 
     # pixel_table = phot_table.copy()

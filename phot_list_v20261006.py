@@ -4,7 +4,7 @@ Do photometry on sources listed in a Gaia star list
 
 Author: Qiushi Chris Tian
 Created from: phot_list_run.py
-Created: 2025-10-06
+Created: 2025-10-20
 Updated: 
 """
 
@@ -38,12 +38,9 @@ APSIZE = np.array([14, 50, 90]) * 0.699  # tuple values in PIXEL (converted to a
 
 BANDS = ['B', 'V', 'R', 'I']
 
-SCI_PATH = Path(
-    '/Volumes/emlaf/westep-transfer/mountpoint/space-raw/'
-    f'{FIELD.replace("_", " ").replace("-", " ")}'
-)
-CALIB_PATH = Path('/Volumes/emlaf/westep-transfer/mastercalib-2025-no_flat')
-WRITE_PATH = Path('.')
+SCI_PATH = Path(f'data/raw/{FIELD.replace("_", " ").replace("-", " ")}')
+CALIB_PATH = Path('data/raw/mastercalib-2025-no_flat')
+WRITE_PATH = Path('data/phot_run_on_server')
 WRITE_PATH.mkdir(parents=True, exist_ok=True)
 
 FLAT_NO_OVERSCAN_DATE, FLAT_WITH_OVERSCAN_DATE = '20230515', '20231102'
@@ -59,7 +56,7 @@ NANMIN_MAX_TIME = 60  # s
 def error_func(data, gain=1.85):
     # return np.sqrt(data)
     # return np.sqrt(data / gain)
-    return calc_total_error(data.astype(float), 0, gain)
+    return calc_total_error(data.astype(float), np.zeros_like(data), gain)
 
 
 def get_fwhm_nanmin(aperture_stats: ApertureStats):
@@ -77,8 +74,7 @@ if __name__ == '__main__':
     comp_star_all_bands = set()
     comp_star_all_bands.add(newport.TARGET_GAIA_DR3[FIELD])
     for band in ['B', 'V', 'R', 'I']:
-        for star in newport.get_comparison_star_list(FIELD, band):
-            comp_star_all_bands.add(star)
+        comp_star_all_bands.update(newport.get_comp_star_list(FIELD, band))
 
     Gaia.MAIN_GAIA_TABLE = "gaiadr3.gaia_source"
 
@@ -98,10 +94,10 @@ if __name__ == '__main__':
         dtype=('S', 'i', 'S', 'f8', 'f8', 'f8', 'f8')
     )
 
-    for source_id in gaia_table['SOURCE_ID']:
+    for source_id in gaia_table['source_id']:
         phot_table[str(source_id)] = [None] * len(phot_table)
 
-    for source_id in gaia_table['SOURCE_ID']:
+    for source_id in gaia_table['source_id']:
         phot_table['err_' + str(source_id)] = [None] * len(phot_table)
 
     # pixel_table = phot_table.copy()

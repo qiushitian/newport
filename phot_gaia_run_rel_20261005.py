@@ -4,7 +4,7 @@ Gaia photometry, not magnitudes.
 
 Author: Qiushi (Chris) Tian
 Created from: phot_gaia_mag_run_2.py
-Created: 2025-10-05
+Created: 2025-10-20
 Updated: 
 """
 
@@ -37,7 +37,7 @@ import warnings
 APER_SIZE_FACTOR = 1.4
 APSIZE = np.array([14, 50, 90]) * 0.699  # tuple values in PIXEL (converted to arcsec)
 
-NANMIN_MAX_TIME = 200  # s
+NANMIN_MAX_TIME = 60  # s
 
 CALIB_PATH = Path('/Volumes/emlaf/westep-transfer/mastercalib-2025-no_flat')
 
@@ -69,8 +69,8 @@ if __name__ == "__main__":
         )
 
     # Set the search parameters
-    search_radius = 25 * u.arcmin  # Replace with your desired radius
-    mag_limit = 15  # Replace with your desired magnitude limit
+    search_radius = 20 * u.arcmin  # Replace with your desired radius
+    mag_limit = 12  # Replace with your desired magnitude limit
 
     # Query Gaia around the coord within the radius
     query = f"""
@@ -88,7 +88,7 @@ if __name__ == "__main__":
     ) = 1
     AND phot_variable_flag != 'VARIABLE'
     AND phot_g_mean_mag < {mag_limit}
-    AND (classprob_dsc_combmod_star > 0.9) -- Probability it's a star
+    AND (classprob_dsc_combmod_star > 0.95) -- Probability it's a star
     """
 
     # Execute the query
@@ -106,10 +106,10 @@ if __name__ == "__main__":
         dtype=('S', 'i', 'S', 'f8', 'f8', 'f8', 'f8')
     )
 
-    for source_id in gaia_table['SOURCE_ID']:
+    for source_id in gaia_table['source_id']:
         phot_table[str(source_id)] = [None] * len(phot_table)
 
-    for source_id in gaia_table['SOURCE_ID']:
+    for source_id in gaia_table['source_id']:
         phot_table['err_' + str(source_id)] = [None] * len(phot_table)
 
     # pixel_table = phot_table.copy()

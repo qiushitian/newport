@@ -8,7 +8,7 @@ Updated:
 
 ## "List" Runs (New, Fast Option)
 
-The idea for the "list" run option is that instead of running source finding for comparison stars, it takes a _list_ of Gaia DR3 IDs as comparison stars. The list comes from `newport.get_comparison_star_list()`, which is a getter/wrapper for `newport.COMPARISON_STAR`.
+The idea for the "list" run option is that instead of running source finding for comparison stars, it takes a _list_ of Gaia DR3 IDs as comparison stars. The list comes from `newport.get_comp_star_list()`, which is a getter/wrapper for `newport.COMPARISON_STAR`.
 
 The only two "list" scripts are `phot_list_run.py` and `phot_list_run_nights.py`. The only difference (other than some dev printings) between the two is that **`_nights` includes a list of nights to _exclude_** from photometry.
 
