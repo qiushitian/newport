@@ -185,7 +185,8 @@ INPUT_PATHS = {
     'TOI-1201': Path('data/tables/list_runs/TOI-1201/phot_list_run/phot_w_err_TOI-1201.fits'),  # was phot_gaia_run_on61outof88
     'TOI-561': Path('data/tables/list_runs/TOI-561/phot_list_run_111outof164_manually_stiched/phot_w_err_TOI-561.fits'),
     # 'TOI-431': Path('data/tables/list_runs/TOI-431/phot_list_run/phot_w_err_TOI-431.fits'),
-    'TOI-431': Path('data/tables/opt_comp_stars/TOI-431/phot_w_err_TOI-431_manual_del.fits'),
+    # 'TOI-431': Path('data/tables/opt_comp_stars/TOI-431/phot_w_err_TOI-431_manual_del.fits'),
+    'TOI-431': Path('data/tables/opt_comp_stars/TOI-431/phot_list_v20261006_TOI-431_manual_del.fits'),
     # 'TOI-1410': Path('data/tables/list_runs/TOI-1410/phot_gaia_run/phot_w_err_TOI-1410.fits'),
     'TOI-1410': Path('data/tables/opt_comp_stars/TOI-1410/phot_w_err_TOI-1410_manual_del_2.fits'),
     'TOI-178': Path('data/tables/list_runs/TOI-178/phot_gaia_run/phot_w_err_TOI-178.fits'),
@@ -212,7 +213,40 @@ MARKERS = {'B': 'o', 'V': 'o', 'R': 'o', 'I': 'o'}
 BAND_ORDER_INDEX = ['B', 'V', 'R', 'I'].index
 
 
+def get_target_gaia(target):
+    """
+    Get the Gaia DR3 ID of the target star.
+
+    Parameters
+    ----------
+    target: (str) – target name
+
+    Returns
+    -------
+    str
+        Gaia DR3 ID of the target star.
+
+    Raises
+    -------
+    KeyError
+        If the target is not found in TARGET_GAIA_DR3.
+    """
+    return TARGET_GAIA_DR3[target]
+
+
 def get_input_path(target):
+    """
+    Get the input path of the target star.
+
+    Parameters
+    ----------
+    target: (str) – target name
+
+    Returns
+    -------
+    Path
+        Path to the input file.
+    """
     return INPUT_PATHS.get(
         target,
         Path(f'tables/list_runs/{target}/phot_list_run/phot_w_err_{target}.fits')
