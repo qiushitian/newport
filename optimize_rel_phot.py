@@ -293,7 +293,8 @@ def plot_target(
     base_path,
     target_name,
     yrange: int | float | str = None,
-    ylim_factor: float = 0.05,
+    yrange_fixed: int | float = None,
+    ycenter: int | float = None,
     tmin: datetime = None,
     tmax: datetime = None,
     x_title: float = 0.18,
@@ -315,13 +316,16 @@ def plot_target(
         base_path (Path): Path to the base directory containing data files.
         target_name (str): Name of the target.
         yrange (int | float | str): Y-axis range. There are 3 options: 
-            markers only ('default', 'ignorerrorebars', 'ignoreebars', 
-                'ignorerrorebar', 'ignoreebar', 'markersonly', 'markers', 
+            - markers only ('default', 'ignorerrorebars', 'ignoreebars',
+                'ignorerrorebar', 'ignoreebar', 'markersonly', 'markers',
                 'markeronly', 'marker');
-            include error bars ('full', 'ebar', 'errorbar', 'ebars', 
+            - include error bars ('full', 'ebar', 'errorbar', 'ebars',
                 'errorbars');
-            n times std (int or float).
-        ylim_factor (float): Factor to extend the y-axis range.
+            - n times std (int or float).
+        yrange_fixed (int | float): Fixed single-side y-axis range.
+            If set, `yrange` is ignored.
+        ycenter (int | float): Center of the y-axis.
+            Only used if `yrange_fixed` is set. If None, default to 1.
         tmin (datetime): Minimum time to display.
         tmax (datetime): Maximum time to display.
         x_title (float): Position of the x-title.
@@ -397,22 +401,29 @@ def plot_target(
         t_unbin = Time(unbin_table['jd'], format='jd').to_datetime()
         t_bin = Time(bin_table['jd'], format='jd').to_datetime()
 
+        # Determine ylim method
+        is_y_fixed = yrange_fixed is not None
+        is_y_n_std = isinstance(
+            yrange, (int, float, np.integer, np.floating)
+        )
+
         # catch ylim
-        if not isinstance(yrange, (int, float)):
+        if not is_y_fixed and not is_y_n_std:
             fake_fig, fake_ax = plt.subplots()
             if yrange is None or yrange in [
-                'default',
-                'ignorerrorebars', 'ignoreebars', 'ignorerrorebar', 'ignoreebar',
-                'markersonly', 'markers', 'markeronly', 'marker'
+                'default', 'marker', 'markers', 'markeronly', 'markersonly',
+                'ignorerrorebar', 'ignorerrorebars',
+                'ignoreebar', 'ignoreebars'
             ]:
                 fake_ax.errorbar(
-                    t_bin, (bin_table['flux'] - 1) * 1.2 + 1,
-                    fmt=newport.MARKERS[band], markeredgewidth=0, ms=7, capsize=6
+                    t_bin, (bin_table['flux'] - 1) * 1.2 + 1, ms=7,
+                    markeredgewidth=0, capsize=6, fmt=newport.MARKERS[band]
                 )
             elif yrange in ['full', 'ebar', 'errorbar', 'ebars', 'errorbars']:
                 fake_ax.errorbar(
                     t_bin, bin_table['flux'], yerr=bin_table['intraday_std'],
-                    fmt=newport.MARKERS[band], markeredgewidth=0, ms=7, capsize=6
+                    markeredgewidth=0, ms=7, capsize=6,
+                    fmt=newport.MARKERS[band]
                 )
             _ylim0, _ylim1 = fake_ax.get_ylim()
             plt.close(fake_fig)
@@ -471,7 +482,11 @@ def plot_target(
         ax.set_xlim(x1, x2)
 
         # Set ylim
-        if isinstance(yrange, (int, float)):
+        if is_y_fixed:
+            if ycenter is None:
+                ycenter = 1.0
+            ax.set_ylim(ycenter - yrange_fixed, ycenter + yrange_fixed)
+        elif is_y_n_std:
             flux = bin_table['flux']
             p25, p75 = np.nanpercentile(flux, [25, 75])
             mid_mask = (flux >= p25) & (flux <= p75)
@@ -612,11 +627,11 @@ def plot_target(
         band_stats_txt_path = savefig_path.parent / (band_stats_txt_fn + '.txt')
         with open(band_stats_txt_path, "w") as file:
             file.write(band_stats_file_content)
-        print(f'Band statistics saved to {band_stats_txt_path}')
+        print(f'Band statistics saved to:\n{band_stats_txt_path}')
 
         # Save plot
         plt.savefig(savefig_path, bbox_inches='tight') # TODO verify if bbox tight is needed
-        print(f"Target plot saved to {savefig_path}")
+        print(f"Target plot saved to:\n{savefig_path}")
 
     plt.show()
 
@@ -764,7 +779,7 @@ def plot_target_ppm(
     band_stats_txt_path = savefig_path.parent / "band_stats.txt"
     with open(band_stats_txt_path, "w") as file:
         file.write(band_stats_file_content)
-    print(f'Band statistics saved to {band_stats_txt_path}')
+    print(f'Band statistics saved to:\n{band_stats_txt_path}')
 
     # # Rotation for bottom row
     # plt.setp(axs[-1].get_xticklabels(), rotation=45, ha='right')
@@ -860,7 +875,7 @@ def plot_target_ppm(
     
     if savefig_path:
         plt.savefig(savefig_path, bbox_inches='tight') # TODO verify if bbox tight is needed
-        print(f"Target plot saved to {savefig_path}")
+        print(f"Target plot saved to:\n{savefig_path}")
     plt.show()
     plt.close()
 
@@ -968,7 +983,7 @@ def plot_fold(
 
     if savefig_path:
         plt.savefig(savefig_path, bbox_inches='tight')
-        print(f"Folded plot saved to {savefig_path}")
+        print(f"Folded plot saved to:\n{savefig_path}")
     if show:
         plt.show()
     plt.close()
@@ -1170,7 +1185,7 @@ def phot_comp(
     comp_ids = set(comp_ids)
 
     for i, band in enumerate(bands):
-        print(f"{i + 1} / {len(bands)}: Band {band}")
+        print(f"{i + 1} out of {len(bands)}: Band {band}")
         band_table = full_table[full_table['band'] == band]
         
         for cid in tqdm(comp_ids):
@@ -1365,7 +1380,7 @@ def plot_comp(
     
     if savefig_path:
         plt.savefig(savefig_path, dpi=200)
-        print(f"Grid diagnostic saved: {savefig_path}")
+        print(f"Grid diagnostic saved to:\n{savefig_path}")
     
     plt.show()
     plt.close(fig)
@@ -1468,7 +1483,7 @@ def plot_comp_periodogram(base_dir, all_comps, used_comps, target_name, savefig_
     
     if savefig_path:
         plt.savefig(savefig_path, dpi=200)
-        print(f"Comparison periodogram saved: {savefig_path}")
+        print(f"Comparison periodogram saved to:\n{savefig_path}")
     
     plt.show()
     plt.close(fig)
